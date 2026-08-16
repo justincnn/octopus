@@ -426,7 +426,12 @@
     },
     "log": {
         "list": {
-            "noMore": "没有更多日志了"
+            "noMore": "没有更多日志了",
+            "clear": "清空日志",
+            "clearing": "清空中...",
+            "clearConfirm": "确定清空全部日志？此操作不可恢复",
+            "clearSuccess": "日志已清空",
+            "clearFailed": "清空失败"
         },
         "card": {
             "error": "错误",

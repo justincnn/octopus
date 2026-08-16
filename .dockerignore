@@ -1,0 +1,9 @@
+.git
+.pnpm-store
+data
+build
+web/node_modules
+web/dist
+*.db
+*.db-wal
+*.db-shm
