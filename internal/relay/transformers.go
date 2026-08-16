@@ -40,8 +40,8 @@ func newOutbound(provider dbmodel.ChannelProvider, request *llm.Request, baseURL
 	// 兼容旧值: 某些历史数据可能把 provider 写成 APIFormat 字符串
 	switch provider {
 	case dbmodel.ChannelProviderOpenAI, dbmodel.ChannelProviderOpenAIResponses, dbmodel.ChannelProviderMistral:
-		// Mistral 经 gptload 网关接入时, gptload 对外暴露 OpenAI 兼容 /chat/completions
-		// (内部自行转成 mistral /v1/conversations), 因此这里复用 OpenAI outbound。
+		// Mistral 官方 API (https://api.mistral.ai/v1) 原生就是 OpenAI 兼容的
+		// /chat/completions 接口, 因此复用 OpenAI outbound, baseURL 填官方地址即可。
 		return openai.NewOutboundTransformer(baseURL, key)
 	case dbmodel.ChannelProviderAnthropic:
 		return anthropic.NewOutboundTransformer(baseURL, key)
