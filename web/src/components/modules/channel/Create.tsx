@@ -28,6 +28,7 @@ export function CreateDialogContent() {
         auto_group: AutoGroupType.None,
         enabled: true,
         proxy: false,
+        max_concurrency: 0,
         match_regex: '',
     });
     const t = useTranslations('channel.create');
@@ -50,6 +51,7 @@ export function CreateDialogContent() {
                 model: formData.model,
                 custom_model: formData.custom_model,
                 proxy: formData.proxy,
+                max_concurrency: formData.max_concurrency,
                 auto_sync: formData.auto_sync,
                 auto_group: formData.auto_group,
                 custom_header: normalizedHeaders,
@@ -77,6 +79,7 @@ export function CreateDialogContent() {
                         auto_group: AutoGroupType.None,
                         enabled: true,
                         proxy: false,
+                        max_concurrency: 0,
                         match_regex: '',
                     });
                     setIsOpen(false);

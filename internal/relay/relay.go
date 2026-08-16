@@ -144,6 +144,11 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 	if r.iter.SkipCircuitBreak(channel.ID, channel.ID, channel.Name) {
 		return nil, nil
 	}
+	// 渠道并发闸: 满则跳过该渠道(下一候选接管)
+	if !tryAcquireChannel(channel.ID, channel.MaxConcurrency) {
+		r.iter.Skip(channel.ID, channel.ID, channel.Name, "channel concurrency limit reached")
+		return nil, nil
+	}
 
 	outAdapter, err := newOutbound(channel.Type, r.internalRequest, channel.BaseURL, key)
 	if err != nil {
@@ -170,6 +175,7 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 // run 统一管理一次通道尝试的完整生命周期。
 func (ra *relayAttempt) run() (bool, error) {
 	span := ra.iter.StartAttempt(ra.channel.ID, ra.channel.ID, ra.channel.Name)
+	defer releaseChannel(ra.channel.ID)
 
 	upstreamStatusCode, fwdErr := ra.forward()
 	if fwdErr == nil && upstreamStatusCode == 0 {

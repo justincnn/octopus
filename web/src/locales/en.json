@@ -521,6 +521,8 @@
             "proxyPool": "Proxy Pool",
             "proxyPoolPlaceholder": "Multiple proxy URLs, one per line or comma-separated (overrides channel proxy)",
             "sticky": "Sticky (fixed egress per channel)",
+            "maxConcurrency": "Max Concurrency",
+            "maxConcurrencyPlaceholder": "0=unlimited; when exceeded, requests fall through to next channel",
             "paramOverride": "Param Override",
             "paramOverridePlaceholder": "Optional: JSON string to override request params",
             "model": "Model",

@@ -42,6 +42,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         model: channel.model,
         custom_model: channel.custom_model,
         proxy: channel.proxy,
+        max_concurrency: channel.max_concurrency ?? 0,
         auto_sync: channel.auto_sync,
         auto_group: channel.auto_group,
         match_regex: channel.match_regex ?? '',
@@ -66,6 +67,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         if (formData.model !== channel.model) req.model = formData.model;
         if (formData.custom_model !== channel.custom_model) req.custom_model = formData.custom_model;
         if (formData.proxy !== channel.proxy) req.proxy = formData.proxy;
+        if (formData.max_concurrency !== (channel.max_concurrency ?? 0)) req.max_concurrency = formData.max_concurrency;
         if (formData.auto_sync !== channel.auto_sync) req.auto_sync = formData.auto_sync;
         if (formData.auto_group !== channel.auto_group) req.auto_group = formData.auto_group;
 

@@ -32,6 +32,7 @@ type Channel struct {
 	Model         string          `json:"model"`                                   // Model 是自动同步的模型列表。
 	CustomModel   string          `json:"custom_model"`                            // CustomModel 是手动配置的模型列表。
 	Proxy         bool            `json:"proxy" gorm:"default:false"`             // Proxy 表示是否使用代理。
+	MaxConcurrency int            `json:"max_concurrency" gorm:"default:0"`        // MaxConcurrency 是渠道最大并发(0=不限制)。
 	AutoSync      bool            `json:"auto_sync" gorm:"default:false"`         // AutoSync 表示是否自动同步模型。
 	AutoGroup     AutoGroupType   `json:"auto_group" gorm:"default:0"`            // AutoGroup 是自动分组策略。
 	CustomHeader  []CustomHeader  `json:"custom_header" gorm:"serializer:json"`   // CustomHeader 是追加到上游请求的 Header。
@@ -60,6 +61,7 @@ type ChannelUpdateRequest struct {
 	Model         *string          `json:"model,omitempty"`         // Model 是新的自动同步模型列表。
 	CustomModel   *string          `json:"custom_model,omitempty"`  // CustomModel 是新的自定义模型列表。
 	Proxy         *bool            `json:"proxy,omitempty"`         // Proxy 是新的代理开关。
+	MaxConcurrency *int            `json:"max_concurrency,omitempty"` // MaxConcurrency 是新的渠道最大并发。
 	AutoSync      *bool            `json:"auto_sync,omitempty"`     // AutoSync 是新的自动同步开关。
 	AutoGroup     *AutoGroupType   `json:"auto_group,omitempty"`    // AutoGroup 是新的自动分组策略。
 	CustomHeader  *[]CustomHeader  `json:"custom_header,omitempty"` // CustomHeader 是新的自定义 Header。

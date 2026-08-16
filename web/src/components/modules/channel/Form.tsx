@@ -29,6 +29,7 @@ export interface ChannelFormData {
     custom_model: string;
     enabled: boolean;
     proxy: boolean;
+    max_concurrency: number;
     auto_sync: boolean;
     auto_group: AutoGroupType;
     match_regex: string;
@@ -483,6 +484,21 @@ export function ChannelForm({
                                 value={formData.match_regex}
                                 onChange={(e) => onFormDataChange({ ...formData, match_regex: e.target.value })}
                                 placeholder={t('matchRegexPlaceholder')}
+                                className="rounded-xl"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor={`${idPrefix}-max-concurrency`} className="text-sm font-medium text-card-foreground">
+                                {t('maxConcurrency')}
+                            </label>
+                            <Input
+                                id={`${idPrefix}-max-concurrency`}
+                                type="number"
+                                min={0}
+                                value={formData.max_concurrency}
+                                onChange={(e) => onFormDataChange({ ...formData, max_concurrency: Number(e.target.value) || 0 })}
+                                placeholder={t('maxConcurrencyPlaceholder')}
                                 className="rounded-xl"
                             />
                         </div>
