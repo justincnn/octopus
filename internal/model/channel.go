@@ -37,6 +37,8 @@ type Channel struct {
 	CustomHeader  []CustomHeader  `json:"custom_header" gorm:"serializer:json"`   // CustomHeader 是追加到上游请求的 Header。
 	ParamOverride *string         `json:"param_override"`                          // ParamOverride 是请求参数覆盖配置。
 	ChannelProxy  *string         `json:"channel_proxy"`                           // ChannelProxy 是渠道专用代理地址。
+	ProxyPool     []string        `json:"proxy_pool" gorm:"serializer:json"`       // ProxyPool 是代理池(多出口 IP, 每请求轮换)。
+	Sticky        bool            `json:"sticky" gorm:"default:false"`             // Sticky 表示是否按会话粘滞同一出口代理。
 	Stats         *StatsChannel   `json:"stats,omitempty" gorm:"foreignKey:ChannelID"` // Stats 是渠道统计信息。
 	MatchRegex    *string         `json:"match_regex"`                             // MatchRegex 是模型同步过滤表达式。
 }
@@ -62,6 +64,8 @@ type ChannelUpdateRequest struct {
 	AutoGroup     *AutoGroupType   `json:"auto_group,omitempty"`    // AutoGroup 是新的自动分组策略。
 	CustomHeader  *[]CustomHeader  `json:"custom_header,omitempty"` // CustomHeader 是新的自定义 Header。
 	ChannelProxy  *string          `json:"channel_proxy,omitempty"` // ChannelProxy 是新的渠道代理地址。
+	ProxyPool     *[]string        `json:"proxy_pool,omitempty"`    // ProxyPool 是新的代理池。
+	Sticky        *bool            `json:"sticky,omitempty"`        // Sticky 是新的粘滞开关。
 	ParamOverride *string          `json:"param_override,omitempty"` // ParamOverride 是新的参数覆盖配置。
 	MatchRegex    *string          `json:"match_regex,omitempty"`   // MatchRegex 是新的模型过滤表达式。
 }

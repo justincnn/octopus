@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/morphing-dialog';
 import { useCreateChannel, ChannelType, AutoGroupType } from '@/api/endpoints/channel';
 import { useTranslations } from 'use-intl';
-import { ChannelForm, type ChannelFormData } from './Form';
+import { ChannelForm, splitPool, type ChannelFormData } from './Form';
 
 export function CreateDialogContent() {
     const { setIsOpen } = useMorphingDialog();
@@ -19,6 +19,8 @@ export function CreateDialogContent() {
         key: '',
         custom_header: [],
         channel_proxy: '',
+        proxy_pool: '',
+        sticky: false,
         param_override: '',
         model: '',
         custom_model: '',
@@ -52,6 +54,8 @@ export function CreateDialogContent() {
                 auto_group: formData.auto_group,
                 custom_header: normalizedHeaders,
                 channel_proxy: channelProxy,
+                proxy_pool: splitPool(formData.proxy_pool),
+                sticky: formData.sticky,
                 param_override: paramOverride,
                 match_regex: formData.match_regex.trim(),
             },
@@ -64,6 +68,8 @@ export function CreateDialogContent() {
                         key: '',
                         custom_header: [],
                         channel_proxy: '',
+                        proxy_pool: '',
+                        sticky: false,
                         param_override: '',
                         model: '',
                         custom_model: '',

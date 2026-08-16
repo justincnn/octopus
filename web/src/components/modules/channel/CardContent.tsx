@@ -20,7 +20,7 @@ import { Tabs, TabsContents, TabsContent } from '@/components/animate-ui/primiti
 import { type StatsMetricsFormatted } from '@/api/endpoints/stats';
 import { useTranslations } from 'use-intl';
 import { Button } from '@/components/ui/button';
-import { ChannelForm, type ChannelFormData } from './Form';
+import { ChannelForm, splitPool, type ChannelFormData } from './Form';
 
 export function CardContent({ channel, stats }: { channel: Channel; stats: StatsMetricsFormatted }) {
     const { setIsOpen } = useMorphingDialog();
@@ -36,6 +36,8 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         key: channel.key,
         custom_header: channel.custom_header ?? [],
         channel_proxy: channel.channel_proxy ?? '',
+        proxy_pool: (channel.proxy_pool ?? []).join('\n'),
+        sticky: channel.sticky ?? false,
         param_override: channel.param_override ?? '',
         model: channel.model,
         custom_model: channel.custom_model,
@@ -78,6 +80,15 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         if (nextChannelProxy !== curChannelProxy) {
             // Empty string means "clear" for patch semantics; backend maps it to NULL.
             req.channel_proxy = nextChannelProxy;
+        }
+
+        const nextProxyPool = splitPool(formData.proxy_pool);
+        const curProxyPool = channel.proxy_pool ?? [];
+        if (JSON.stringify(nextProxyPool) !== JSON.stringify(curProxyPool)) {
+            req.proxy_pool = nextProxyPool;
+        }
+        if (formData.sticky !== (channel.sticky ?? false)) {
+            req.sticky = formData.sticky;
         }
 
         const nextParamOverride = formData.param_override.trim();

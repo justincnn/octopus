@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/bestruirui/octopus/internal/client"
 	"github.com/bestruirui/octopus/internal/model"
@@ -13,10 +14,30 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
+// proxyPoolRR 代理池轮换计数器(非 sticky 时轮换出口 IP)。
+var proxyPoolRR atomic.Uint64
+
 // ChannelHttpClient 根据渠道代理配置创建 HTTP 客户端。
+// 优先级: proxy_pool(多 IP 池) > channel_proxy(单代理) > 系统代理。
+// sticky=true 时按渠道 ID 哈希固定代理(同渠道同出口); 否则轮换。
 func ChannelHttpClient(channel *model.Channel) (*http.Client, error) {
 	if !channel.Proxy {
 		return client.GetHTTPClientSystemProxy(false)
+	}
+	if len(channel.ProxyPool) > 0 {
+		pool := make([]string, 0, len(channel.ProxyPool))
+		for _, p := range channel.ProxyPool {
+			if strings.TrimSpace(p) != "" {
+				pool = append(pool, strings.TrimSpace(p))
+			}
+		}
+		if len(pool) > 0 {
+			idx := proxyPoolRR.Add(1) - 1
+			if channel.Sticky {
+				idx = uint64(channel.ID)
+			}
+			return client.GetHTTPClientCustomProxy(pool[idx%uint64(len(pool))])
+		}
 	}
 	if channel.ChannelProxy == nil || strings.TrimSpace(*channel.ChannelProxy) == "" {
 		return client.GetHTTPClientSystemProxy(true)

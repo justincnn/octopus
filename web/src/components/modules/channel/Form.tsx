@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus } from 'lucide-react';
+import { RefreshCw, X, Plus, Check } from 'lucide-react';
 
 export interface ChannelFormData {
     name: string;
@@ -22,6 +22,8 @@ export interface ChannelFormData {
     key: string;
     custom_header: Channel['custom_header'];
     channel_proxy: string;
+    proxy_pool: string;
+    sticky: boolean;
     param_override: string;
     model: string;
     custom_model: string;
@@ -82,6 +84,11 @@ export function ChannelForm({
 
     const fetchModel = useFetchModel();
 
+    // 模型候选框: 拉取后弹多选, 默认全不选, 确认后并入 model
+    const [candidateModels, setCandidateModels] = useState<string[]>([]);
+    const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
+    const [showCandidate, setShowCandidate] = useState(false);
+
     const updateModels = (nextAuto: string[], nextCustom: string[]) => {
         const model = nextAuto.join(',');
         const custom_model = nextCustom.join(',');
@@ -98,15 +105,18 @@ export function ChannelForm({
                 key: formData.key.trim(),
                 proxy: formData.proxy,
                 channel_proxy: formData.channel_proxy?.trim() || null,
+                proxy_pool: splitPool(formData.proxy_pool),
+                sticky: formData.sticky,
                 match_regex: formData.match_regex.trim() || null,
                 custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
             },
             {
                 onSuccess: (data) => {
                     if (data && data.length > 0) {
-                        const nextAuto = Array.from(new Set([...autoModels, ...data].map((m) => m.trim()).filter(Boolean)));
-                        updateModels(nextAuto, customModels);
-                        toast.success(t('modelRefreshSuccess'));
+                        // 弹候选框: 默认全不选
+                        setCandidateModels(data);
+                        setSelectedModels(new Set());
+                        setShowCandidate(true);
                     } else {
                         toast.warning(t('modelRefreshEmpty'));
                     }
@@ -117,6 +127,15 @@ export function ChannelForm({
                 },
             }
         );
+    };
+
+    // 确认候选: 勾选的并入 autoModels, 未勾选的丢弃
+    const confirmCandidates = () => {
+        const chosen = Array.from(selectedModels);
+        const nextAuto = Array.from(new Set([...autoModels, ...chosen].map((m) => m.trim()).filter(Boolean)));
+        updateModels(nextAuto, customModels);
+        setShowCandidate(false);
+        if (chosen.length > 0) toast.success(t('modelRefreshSuccess'));
     };
 
     const handleAddModel = (model: string) => {
@@ -162,6 +181,19 @@ export function ChannelForm({
 
     return (
         <form onSubmit={onSubmit} className="space-y-4 px-1">
+            {showCandidate && (
+                <ModelCandidateDialog
+                    models={candidateModels}
+                    selected={selectedModels}
+                    onToggle={(m) => {
+                        const next = new Set(selectedModels);
+                        if (next.has(m)) next.delete(m); else next.add(m);
+                        setSelectedModels(next);
+                    }}
+                    onConfirm={confirmCandidates}
+                    onCancel={() => setShowCandidate(false)}
+                />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label htmlFor={`${idPrefix}-name`} className="text-sm font-medium text-card-foreground">
@@ -367,6 +399,29 @@ export function ChannelForm({
                                     className="rounded-xl"
                                 />
                             </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor={`${idPrefix}-proxy-pool`} className="text-sm font-medium text-card-foreground">
+                                    {t('proxyPool')}
+                                </label>
+                                <Input
+                                    id={`${idPrefix}-proxy-pool`}
+                                    type="text"
+                                    value={formData.proxy_pool}
+                                    onChange={(e) => onFormDataChange({ ...formData, proxy_pool: e.target.value })}
+                                    placeholder={t('proxyPoolPlaceholder')}
+                                    className="rounded-xl"
+                                />
+                                <div className="flex items-center justify-between pt-1">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <Switch
+                                            checked={formData.sticky}
+                                            onCheckedChange={(checked) => onFormDataChange({ ...formData, sticky: checked })}
+                                        />
+                                        <span className="text-sm text-card-foreground">{t('sticky')}</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -495,4 +550,62 @@ export function ChannelForm({
             </div>
         </form>
     );
+}
+
+// 模型候选选择框: 拉取模型后弹出, checkbox 多选, 默认全不选。
+export function ModelCandidateDialog({
+    models,
+    selected,
+    onToggle,
+    onConfirm,
+    onCancel,
+}: {
+    models: string[];
+    selected: Set<string>;
+    onToggle: (m: string) => void;
+    onConfirm: () => void;
+    onCancel: () => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+                <h3 className="mb-1 text-base font-bold text-card-foreground">选择要添加的模型</h3>
+                <p className="mb-3 text-xs text-muted-foreground">
+                    共 {models.length} 个模型，勾选后确认（默认全不选）
+                </p>
+                <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-muted/30 p-2">
+                    {models.map((m) => (
+                        <label
+                            key={m}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={selected.has(m)}
+                                onChange={() => onToggle(m)}
+                                className="accent-primary"
+                            />
+                            <span className="truncate font-mono text-foreground">{m}</span>
+                        </label>
+                    ))}
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="rounded-xl">
+                        <X className="h-3.5 w-3.5 mr-1" />取消
+                    </Button>
+                    <Button type="button" size="sm" onClick={onConfirm} className="rounded-xl">
+                        <Check className="h-3.5 w-3.5 mr-1" />确认添加 ({selected.size})
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// splitPool 把逗号/换行分隔的代理池文本转成数组。
+export function splitPool(text: string): string[] {
+    return text
+        .split(/[\n,]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 }

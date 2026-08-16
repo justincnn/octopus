@@ -89,6 +89,14 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 		selectFields = append(selectFields, "channel_proxy")
 		updates.ChannelProxy = req.ChannelProxy
 	}
+	if req.ProxyPool != nil {
+		selectFields = append(selectFields, "proxy_pool")
+		updates.ProxyPool = *req.ProxyPool
+	}
+	if req.Sticky != nil {
+		selectFields = append(selectFields, "sticky")
+		updates.Sticky = *req.Sticky
+	}
 	if req.ParamOverride != nil {
 		selectFields = append(selectFields, "param_override")
 		updates.ParamOverride = req.ParamOverride

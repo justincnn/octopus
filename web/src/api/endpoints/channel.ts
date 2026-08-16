@@ -46,6 +46,8 @@ export type Channel = {
     custom_header: CustomHeader[];
     param_override?: string | null;
     channel_proxy?: string | null;
+    proxy_pool?: string[] | null;
+    sticky?: boolean;
     match_regex?: string | null;
     stats: StatsChannel;
 };
@@ -71,6 +73,8 @@ export type CreateChannelRequest = {
     auto_group?: AutoGroupType;
     custom_header?: CustomHeader[];
     channel_proxy?: string | null;
+    proxy_pool?: string[] | null;
+    sticky?: boolean;
     param_override?: string | null;
     match_regex?: string | null;
 };
@@ -92,6 +96,8 @@ export type UpdateChannelRequest = {
     auto_group?: AutoGroupType;
     custom_header?: CustomHeader[];
     channel_proxy?: string | null;
+    proxy_pool?: string[] | null;
+    sticky?: boolean;
     param_override?: string | null;
     match_regex?: string | null;
 };
@@ -102,6 +108,8 @@ export type FetchModelRequest = {
     key: string;
     proxy?: boolean;
     channel_proxy?: string | null;
+    proxy_pool?: string[] | null;
+    sticky?: boolean;
     match_regex?: string | null;
     custom_header?: CustomHeader[];
 };
