@@ -19,6 +19,7 @@ const (
 	ChannelProviderAnthropic       ChannelProvider = "anthropic"
 	ChannelProviderGemini          ChannelProvider = "gemini"
 	ChannelProviderVolcengine      ChannelProvider = "volcengine"
+	ChannelProviderMistral         ChannelProvider = "mistral"
 )
 
 // Channel 保存单个上游渠道的连接和转发配置。

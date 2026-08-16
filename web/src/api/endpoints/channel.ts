@@ -11,6 +11,7 @@ export enum ChannelType {
     Anthropic = 'anthropic',
     Gemini = 'gemini',
     Volcengine = 'volcengine',
+    Mistral = 'mistral',
 }
 
 /**
