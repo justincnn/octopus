@@ -34,59 +34,20 @@ func newInbound(format llm.APIFormat) transformer.Inbound {
 	}
 }
 
-func newOutbound(channelType llm.APIFormat, request *llm.Request, baseURL, key string) (transformer.Outbound, error) {
-	requestType := llm.RequestTypeChat
-	if request != nil && request.RequestType != "" {
-		requestType = request.RequestType
-	}
-
-	// 将请求类型兼容性收敛到出站适配器选择处，避免 Handler 先创建适配器再用本地规则二次拦截，
-	// 这样 Doubao/Gemini 在 axonhub 已经支持的 embedding/image 能力不会被项目内旧判断挡住。
-	switch requestType {
-	case llm.RequestTypeEmbedding:
-		switch channelType {
-		case llm.APIFormatOpenAIChatCompletion,
-			llm.APIFormatOpenAIResponse,
-			llm.APIFormatOpenAIEmbedding:
-			return openai.NewOutboundTransformer(baseURL, key)
-		case llm.APIFormatGeminiContents:
-			return gemini.NewOutboundTransformer(baseURL, key)
-		case dbmodel.ChannelTypeDoubao:
-			return doubao.NewOutboundTransformer(baseURL, key)
-		default:
-			return nil, fmt.Errorf("channel type %s is not compatible with %s request", channelType, requestType)
-		}
-	case llm.RequestTypeImage:
-		switch channelType {
-		case llm.APIFormatOpenAIChatCompletion,
-			llm.APIFormatOpenAIResponse,
-			llm.APIFormatOpenAIImageGeneration,
-			llm.APIFormatOpenAIImageEdit,
-			llm.APIFormatOpenAIImageVariation:
-			return openai.NewOutboundTransformer(baseURL, key)
-		case llm.APIFormatGeminiContents:
-			return gemini.NewOutboundTransformer(baseURL, key)
-		case dbmodel.ChannelTypeDoubao:
-			return doubao.NewOutboundTransformer(baseURL, key)
-		default:
-			return nil, fmt.Errorf("channel type %s is not compatible with %s request", channelType, requestType)
-		}
-	case llm.RequestTypeChat:
-		switch channelType {
-		case llm.APIFormatOpenAIChatCompletion:
-			return openai.NewOutboundTransformer(baseURL, key)
-		case llm.APIFormatOpenAIResponse:
-			return responses.NewOutboundTransformer(baseURL, key)
-		case llm.APIFormatAnthropicMessage:
-			return anthropic.NewOutboundTransformer(baseURL, key)
-		case llm.APIFormatGeminiContents:
-			return gemini.NewOutboundTransformer(baseURL, key)
-		case dbmodel.ChannelTypeDoubao:
-			return doubao.NewOutboundTransformer(baseURL, key)
-		default:
-			return nil, fmt.Errorf("channel type %s is not compatible with %s request", channelType, requestType)
-		}
+// newOutbound 根据渠道提供方(ChannelProvider)选择上游适配器。扁平化后渠道只存
+// ChannelProvider, 不再持有 llm.APIFormat, 因此这里统一按 provider 分发。
+func newOutbound(provider dbmodel.ChannelProvider, request *llm.Request, baseURL, key string) (transformer.Outbound, error) {
+	// 兼容旧值: 某些历史数据可能把 provider 写成 APIFormat 字符串
+	switch provider {
+	case dbmodel.ChannelProviderOpenAI, dbmodel.ChannelProviderOpenAIResponses:
+		return openai.NewOutboundTransformer(baseURL, key)
+	case dbmodel.ChannelProviderAnthropic:
+		return anthropic.NewOutboundTransformer(baseURL, key)
+	case dbmodel.ChannelProviderGemini:
+		return gemini.NewOutboundTransformer(baseURL, key)
+	case dbmodel.ChannelProviderVolcengine:
+		return doubao.NewOutboundTransformer(baseURL, key)
 	default:
-		return nil, fmt.Errorf("%s request is not supported by relay", requestType)
+		return nil, fmt.Errorf("channel provider %s not supported", provider)
 	}
 }

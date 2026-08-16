@@ -24,5 +24,6 @@ type relayAttempt struct {
 
 	outAdapter transformer.Outbound
 	channel    *dbmodel.Channel
-	usedKey    dbmodel.ChannelKey
+	// key 是本次尝试使用的上游访问凭据(扁平单 key = channel.Key)。
+	key string
 }

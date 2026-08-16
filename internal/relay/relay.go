@@ -136,18 +136,18 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		return nil, nil
 	}
 
-	usedKey := channel.GetChannelKey()
-	if usedKey.ChannelKey == "" {
-		r.iter.Skip(channel.ID, 0, channel.Name, "no available key")
+	key := channel.Key
+	if key == "" {
+		r.iter.Skip(channel.ID, channel.ID, channel.Name, "no available key")
 		return nil, nil
 	}
-	if r.iter.SkipCircuitBreak(channel.ID, usedKey.ID, channel.Name) {
+	if r.iter.SkipCircuitBreak(channel.ID, channel.ID, channel.Name) {
 		return nil, nil
 	}
 
-	outAdapter, err := newOutbound(channel.Type, r.internalRequest, channel.GetBaseUrl(), usedKey.ChannelKey)
+	outAdapter, err := newOutbound(channel.Type, r.internalRequest, channel.BaseURL, key)
 	if err != nil {
-		r.iter.Skip(channel.ID, usedKey.ID, channel.Name, err.Error())
+		r.iter.Skip(channel.ID, channel.ID, channel.Name, err.Error())
 		return nil, nil
 	}
 
@@ -163,42 +163,36 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		relayRun:   r,
 		outAdapter: outAdapter,
 		channel:    channel,
-		usedKey:    usedKey,
+		key:        key,
 	}, nil
 }
 
 // run 统一管理一次通道尝试的完整生命周期。
 func (ra *relayAttempt) run() (bool, error) {
-	span := ra.iter.StartAttempt(ra.channel.ID, ra.usedKey.ID, ra.channel.Name)
+	span := ra.iter.StartAttempt(ra.channel.ID, ra.channel.ID, ra.channel.Name)
 
 	upstreamStatusCode, fwdErr := ra.forward()
 	if fwdErr == nil && upstreamStatusCode == 0 {
 		upstreamStatusCode = http.StatusOK
 	}
-	ra.usedKey.StatusCode = upstreamStatusCode
-	ra.usedKey.LastUseTimeStamp = time.Now().Unix()
 
 	if fwdErr == nil {
-		ra.usedKey.TotalCost += ra.metrics.Stats.InputCost + ra.metrics.Stats.OutputCost
-		op.ChannelKeyUpdate(ra.usedKey)
-
 		span.End(dbmodel.AttemptSuccess, "")
 		op.StatsChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
 			WaitTime:       span.Duration().Milliseconds(),
 			RequestSuccess: 1,
 		})
-		balancer.RecordSuccess(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model)
-		balancer.SetSticky(ra.metrics.APIKeyID, ra.metrics.RequestModel, ra.channel.ID, ra.usedKey.ID)
+		balancer.RecordSuccess(ra.channel.ID, ra.channel.ID, ra.internalRequest.Model)
+		balancer.SetSticky(ra.metrics.APIKeyID, ra.metrics.RequestModel, ra.channel.ID, ra.channel.ID)
 		return false, nil
 	}
 
-	op.ChannelKeyUpdate(ra.usedKey)
 	span.End(dbmodel.AttemptFailed, fwdErr.Error())
 	op.StatsChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
 		WaitTime:      span.Duration().Milliseconds(),
 		RequestFailed: 1,
 	})
-	balancer.RecordFailure(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model)
+	balancer.RecordFailure(ra.channel.ID, ra.channel.ID, ra.internalRequest.Model)
 
 	return ra.c.Writer.Written(), fmt.Errorf("channel %s failed: %v", ra.channel.Name, fwdErr)
 }

@@ -12,8 +12,9 @@ const (
 
 // ChannelAttempt 记录单次渠道尝试的决策和结果
 type ChannelAttempt struct {
-	ChannelID   int           `json:"channel_id"`      // ChannelID 是尝试使用的渠道主键。
-	ChannelName string        `json:"channel_name"`    // ChannelName 是尝试使用的渠道名称。
+	ChannelID    int           `json:"channel_id"`      // ChannelID 是尝试使用的渠道主键。
+	ChannelKeyID int           `json:"channel_key_id"`  // ChannelKeyID 是本次尝试使用的访问凭据标识(扁平单 key 模式下等于 ChannelID)。
+	ChannelName  string        `json:"channel_name"`    // ChannelName 是尝试使用的渠道名称。
 	ModelName   string        `json:"model_name"`      // ModelName 是尝试使用的上游模型。
 	AttemptNum  int           `json:"attempt_num"`     // AttemptNum 是本次请求中的尝试序号。
 	Status      AttemptStatus `json:"status"`          // Status 是尝试结果。
