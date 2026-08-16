@@ -136,7 +136,7 @@ func (m *mistralConversationOutbound) TransformResponse(ctx context.Context, htt
 
 // TransformStream 处理流式响应: event: message.output.delta → OpenAI delta chunk。
 func (m *mistralConversationOutbound) TransformStream(ctx context.Context, req *httpclient.Request, stream streams.Stream[*httpclient.StreamEvent]) (streams.Stream[*llm.Response], error) {
-	return streams.MapErr(stream, func(event *httpclient.StreamEvent) (*llm.Response, error) {
+	return streams.NoNil(streams.MapErr(stream, func(event *httpclient.StreamEvent) (*llm.Response, error) {
 		if event == nil || len(event.Data) == 0 {
 			return nil, nil
 		}
@@ -162,7 +162,7 @@ func (m *mistralConversationOutbound) TransformStream(ctx context.Context, req *
 			}, nil
 		}
 		return nil, nil // message_start 等无关帧
-	}), nil
+	})), nil
 }
 
 // TransformError 复用 OpenAI 错误转换。

@@ -41,6 +41,22 @@ func GroupGet(id int, ctx context.Context) (*model.Group, error) {
 func GroupGetEnabledMap(name string, ctx context.Context) (model.Group, error) {
 	group, ok := groupMap.Get(name)
 	if !ok {
+		// fallback: 下游用渠道真实模型名请求(如 glm-5-2)而非分组名时,
+		// 遍历所有分组 items 匹配 model_name 找到对应分组。
+		for _, g := range groupCache.GetAll() {
+			for _, item := range g.Items {
+				if item.ModelName == name {
+					group = g
+					ok = true
+					break
+				}
+			}
+			if ok {
+				break
+			}
+		}
+	}
+	if !ok {
 		return model.Group{}, fmt.Errorf("group not found")
 	}
 	if len(group.Items) == 0 {

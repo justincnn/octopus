@@ -18,8 +18,9 @@ import (
 var proxyPoolRR atomic.Uint64
 
 // ChannelHttpClient 根据渠道代理配置创建 HTTP 客户端。
-// 优先级: proxy_pool(多 IP 池) > channel_proxy(单代理) > 系统代理。
+// 优先级: proxy_pool(多 IP 池) > channel_proxy(单代理) > 系统代理 > 直连。
 // sticky=true 时按渠道 ID 哈希固定代理(同渠道同出口); 否则轮换。
+// 渠道开了 Proxy 但没配任何代理地址时回退直连(不报错)——之前会因系统代理为空报 "proxy url is empty"。
 func ChannelHttpClient(channel *model.Channel) (*http.Client, error) {
 	if !channel.Proxy {
 		return client.GetHTTPClientSystemProxy(false)
@@ -40,7 +41,12 @@ func ChannelHttpClient(channel *model.Channel) (*http.Client, error) {
 		}
 	}
 	if channel.ChannelProxy == nil || strings.TrimSpace(*channel.ChannelProxy) == "" {
-		return client.GetHTTPClientSystemProxy(true)
+		// 开了代理但没配地址: 尝试系统代理, 系统也没配则直连
+		hc, err := client.GetHTTPClientSystemProxy(true)
+		if err == nil {
+			return hc, nil
+		}
+		return client.GetHTTPClientSystemProxy(false)
 	}
 	return client.GetHTTPClientCustomProxy(strings.TrimSpace(*channel.ChannelProxy))
 }
