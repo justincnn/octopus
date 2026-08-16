@@ -193,7 +193,6 @@ export function ChannelForm({
                             <SelectItem className='rounded-xl' value={String(ChannelType.OpenAIResponse)}>{t('typeOpenAIResponse')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Anthropic)}>{t('typeAnthropic')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Gemini)}>{t('typeGemini')}</SelectItem>
-                            <SelectItem className='rounded-xl' value={String(ChannelType.Volcengine)}>{t('typeVolcengine')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Mistral)}>{t('typeMistral')}</SelectItem>
                         </SelectContent>
                     </Select>

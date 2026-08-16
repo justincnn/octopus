@@ -18,7 +18,6 @@ const (
 	ChannelProviderOpenAIResponses ChannelProvider = "openai_responses"
 	ChannelProviderAnthropic       ChannelProvider = "anthropic"
 	ChannelProviderGemini          ChannelProvider = "gemini"
-	ChannelProviderVolcengine      ChannelProvider = "volcengine"
 	ChannelProviderMistral         ChannelProvider = "mistral"
 )
 

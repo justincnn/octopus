@@ -10,7 +10,6 @@ export enum ChannelType {
     OpenAIResponse = 'openai_responses',
     Anthropic = 'anthropic',
     Gemini = 'gemini',
-    Volcengine = 'volcengine',
     Mistral = 'mistral',
 }
 

@@ -2,4 +2,7 @@ data
 build
 static/out/*
 !static/out/README.md
-.vscode
+.vscode.pnpm-store/
+octopus-bin
+web/node_modules/
+.pnpm-store/

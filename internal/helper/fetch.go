@@ -51,9 +51,6 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 // refer: https://platform.openai.com/docs/api-reference/models/list
 func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
 	baseURL := transformer.NormalizeBaseURL(request.BaseURL, "v1")
-	if request.Type == model.ChannelProviderVolcengine {
-		baseURL = transformer.NormalizeBaseURL(request.BaseURL, "v3")
-	}
 	req, _ := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
