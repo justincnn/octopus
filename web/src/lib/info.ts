@@ -1,2 +1,3 @@
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || 'unknown'; // 当前前端构建对应的应用版本。
-export const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'https://github.com/bestruirui/octopus'; // 项目仓库地址。
+// 应用版本与仓库信息(自维护 mod, 版本号手动递增)。
+export const APP_VERSION = 'v1.0.0-mod';
+export const GITHUB_REPO = 'https://github.com/justincnn/octopus';

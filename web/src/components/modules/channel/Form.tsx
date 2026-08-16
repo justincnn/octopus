@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, Check } from 'lucide-react';
+import { RefreshCw, X, Plus, Check, Search } from 'lucide-react';
 
 export interface ChannelFormData {
     name: string;
@@ -566,6 +566,11 @@ export function ModelCandidateDialog({
     onConfirm: () => void;
     onCancel: () => void;
 }) {
+    const [search, setSearch] = useState('');
+    const filtered = search.trim()
+        ? models.filter((m) => m.toLowerCase().includes(search.trim().toLowerCase()))
+        : models;
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
@@ -573,21 +578,35 @@ export function ModelCandidateDialog({
                 <p className="mb-3 text-xs text-muted-foreground">
                     共 {models.length} 个模型，勾选后确认（默认全不选）
                 </p>
+                <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="搜索模型..."
+                        className="rounded-xl pl-9"
+                    />
+                </div>
                 <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-muted/30 p-2">
-                    {models.map((m) => (
-                        <label
-                            key={m}
-                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={selected.has(m)}
-                                onChange={() => onToggle(m)}
-                                className="accent-primary"
-                            />
-                            <span className="truncate font-mono text-foreground">{m}</span>
-                        </label>
-                    ))}
+                    {filtered.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-muted-foreground">无匹配模型</div>
+                    ) : (
+                        filtered.map((m) => (
+                            <label
+                                key={m}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selected.has(m)}
+                                    onChange={() => onToggle(m)}
+                                    className="accent-primary"
+                                />
+                                <span className="truncate font-mono text-foreground">{m}</span>
+                            </label>
+                        ))
+                    )}
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                     <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="rounded-xl">

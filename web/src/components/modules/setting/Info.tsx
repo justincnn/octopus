@@ -1,35 +1,9 @@
 import { useTranslations } from 'use-intl';
-import { Info, Tag, Github, RefreshCw } from 'lucide-react';
+import { Info, Tag, Github } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO } from '@/lib/info';
-import { Button } from '@/components/ui/button';
-import { isOctopusCacheName, isFontCacheName, SW_MESSAGE_TYPE } from '@/lib/sw';
 
 export function SettingInfo() {
     const t = useTranslations('setting');
-
-    // 前端版本与后端当前版本不一致 → 浏览器缓存问题
-    const clearCacheAndReload = async () => {
-        // 通知 Service Worker 清理缓存
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: SW_MESSAGE_TYPE.CLEAR_CACHE });
-        }
-        // 同时也从主线程清理（双保险），但保留字体缓存
-        if ('caches' in window) {
-            const names = await caches.keys();
-            await Promise.all(
-                names
-                    .filter((name) => isOctopusCacheName(name) && !isFontCacheName(name))
-                    .map((name) => caches.delete(name))
-            );
-        }
-        // 注销当前 SW，下次加载会重新注册
-        if ('serviceWorker' in navigator) {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(registrations.map((reg) => reg.unregister()));
-        }
-        // 强制刷新（跳过缓存）
-        window.location.reload();
-    };
 
     return (
         <div className="rounded-3xl border border-border bg-card p-6 space-y-5">
@@ -61,19 +35,6 @@ export function SettingInfo() {
                 <code className="text-sm font-mono text-muted-foreground">
                     {APP_VERSION}
                 </code>
-            </div>
-
-            {/* 强制刷新缓存（无版本更新逻辑，自维护 mod 不需要） */}
-            <div className="flex justify-end">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearCacheAndReload}
-                    className="rounded-xl"
-                >
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                    {t('info.forceRefresh')}
-                </Button>
             </div>
         </div>
     );

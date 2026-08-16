@@ -73,12 +73,7 @@ func (m *mistralConversationOutbound) TransformRequest(ctx context.Context, llmR
 		stream = *llmReq.Stream
 	}
 	body["stream"] = stream
-	if llmReq.MaxTokens != nil {
-		body["max_tokens"] = *llmReq.MaxTokens
-	}
-	if llmReq.Temperature != nil {
-		body["temperature"] = *llmReq.Temperature
-	}
+	// ⚠️ 官方 /v1/conversations 禁止 max_tokens/temperature(extra_forbidden 422), 只发 model/inputs/stream
 
 	raw, err := json.Marshal(body)
 	if err != nil {
