@@ -38,11 +38,14 @@ func UpdateLLMPrice(ctx context.Context) error {
 	defer func() {
 		log.Debugf("update LLM price task finished, update time: %s", time.Since(startTime))
 	}()
+	// 定时任务 ctx 是 Background() 无限期, 加超时防 models.dev 挂起卡死后台。
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	client, err := client.GetHTTPClientSystemProxy(false)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, llmPriceUrl, nil)
+	req, err := http.NewRequestWithContext(cctx, http.MethodGet, llmPriceUrl, nil)
 	if err != nil {
 		return err
 	}
@@ -69,14 +72,24 @@ func UpdateLLMPrice(ctx context.Context) error {
 		return fmt.Errorf("failed to parse LLM info: %w", err)
 	}
 	llmPriceLock.Lock()
+	infos := make([]model.LLMInfo, 0, 512)
 	for _, provider := range Provider {
-		for _, model := range rawPrice[provider].Models {
-			model.ID = strings.ToLower(model.ID)
-			llmPrice[model.ID] = model.Cost
+		for _, m := range rawPrice[provider].Models {
+			m.ID = strings.ToLower(m.ID)
+			if m.ID == "" {
+				continue
+			}
+			llmPrice[m.ID] = m.Cost
+			infos = append(infos, model.LLMInfo{Name: m.ID, LLMPrice: m.Cost})
 		}
 	}
 	llmPriceLock.Unlock()
 	lastUpdateTime = time.Now()
+
+	// 新增: 落库持久化, 让设置页列表(读 DB)显示最新价格且重启不丢。
+	if err := op.LLMUpsertAll(infos, cctx); err != nil {
+		log.Warnf("failed to upsert llm price to db: %v", err)
+	}
 	return nil
 }
 

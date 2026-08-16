@@ -1,7 +1,9 @@
 package op
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 
 	"github.com/bestruirui/octopus/internal/db"
 	"github.com/bestruirui/octopus/internal/model"
@@ -10,19 +12,38 @@ import (
 
 var userCache model.User
 
+const passwordAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+// randomPassword 生成 n 位随机密码(字母+数字), 避免默认 admin/admin 弱口令。
+func randomPassword(n int) (string, error) {
+	b := make([]byte, n)
+	for i := range b {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(passwordAlphabet))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = passwordAlphabet[idx.Int64()]
+	}
+	return string(b), nil
+}
+
 func UserInit() error {
 	if err := db.GetDB().First(&userCache).Error; err == nil {
 		return nil
 	}
+	pwd, err := randomPassword(16)
+	if err != nil {
+		return fmt.Errorf("failed to generate initial password: %w", err)
+	}
 	userCache.Username = "admin"
-	userCache.Password = "admin"
+	userCache.Password = pwd
 	if err := userCache.HashPassword(); err != nil {
 		return err
 	}
 	if err := db.GetDB().Create(&userCache).Error; err != nil {
 		return err
 	}
-	log.Infof("initial user: admin,password: admin")
+	log.Infof("first run: created admin user. Initial password (shown once): %s", pwd)
 	return nil
 }
 

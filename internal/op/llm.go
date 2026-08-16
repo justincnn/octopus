@@ -104,6 +104,34 @@ func LLMGet(name string) (model.LLMPrice, error) {
 	return price, nil
 }
 
+// LLMUpsertAll 批量写入或更新模型价格。GORM Save: 主键存在则更新, 否则插入。
+// 用于从上游(models.dev)拉取最新价格后持久化回 DB, 让列表可见且重启不丢。
+func LLMUpsertAll(llmInfos []model.LLMInfo, ctx context.Context) error {
+	if len(llmInfos) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(llmInfos))
+	clean := make([]model.LLMInfo, 0, len(llmInfos))
+	for _, m := range llmInfos {
+		m.Name = strings.ToLower(m.Name)
+		if m.Name == "" {
+			continue
+		}
+		if _, ok := seen[m.Name]; ok {
+			continue
+		}
+		seen[m.Name] = struct{}{}
+		clean = append(clean, m)
+	}
+	if err := db.GetDB().WithContext(ctx).Save(&clean).Error; err != nil {
+		return err
+	}
+	for _, m := range clean {
+		llmModelCache.Set(m.Name, m.LLMPrice)
+	}
+	return nil
+}
+
 func llmRefreshCache(ctx context.Context) error {
 	models := []model.LLMInfo{}
 	if err := db.GetDB().WithContext(ctx).Find(&models).Error; err != nil {
