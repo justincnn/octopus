@@ -173,10 +173,12 @@ export function useLastUpdateTime() {
 export interface ModelMatchCandidate {
     canonical_id: string;
     reason: string;
-    input: number;
-    output: number;
-    cache_read: number;
-    cache_write: number;
+    price: {
+        input: number;
+        output: number;
+        cache_read: number;
+        cache_write: number;
+    };
 }
 
 /** 获取所有渠道里未匹配价格的模型名 */

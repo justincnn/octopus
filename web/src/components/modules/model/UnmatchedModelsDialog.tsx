@@ -130,7 +130,7 @@ export function UnmatchedModelsDialog() {
                                                         </span>
                                                     </span>
                                                     <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-                                                        ↓{cand.input.toFixed(2)} ↑{cand.output.toFixed(2)}
+                                                        ↓{cand.price.input.toFixed(2)} ↑{cand.price.output.toFixed(2)}
                                                     </span>
                                                     <span
                                                         className={cn(
