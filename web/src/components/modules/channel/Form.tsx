@@ -129,11 +129,21 @@ export function ChannelForm({
 
     const handleRefreshModels = async () => {
         if (!formData.base_url || !formData.key) return;
+        let key = formData.key.trim();
+        // 编辑已有渠道时 key 是打码值(前3****后4): 拉模型必须用明文, 先拉取再请求
+        if (key.includes('****') && channelId) {
+            const res = await channelKeyQuery.refetch();
+            if (!res.data) {
+                toast.error(t('modelRefreshFailed'), { description: '无法获取渠道密钥，请先点击密钥旁的眼睛显示' });
+                return;
+            }
+            key = res.data;
+        }
         fetchModel.mutate(
             {
                 type: formData.type,
                 base_url: formData.base_url.trim(),
-                key: formData.key.trim(),
+                key,
                 proxy: formData.proxy,
                 channel_proxy: formData.channel_proxy?.trim() || null,
                 proxy_pool: splitPool(formData.proxy_pool),

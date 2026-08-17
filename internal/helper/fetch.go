@@ -3,6 +3,8 @@ package helper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -65,6 +67,12 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// 非 2xx 明确报错(否则 401/429 静默解码成空列表, 用户看到"拉取失败"无从查起)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("fetch models failed: status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	var result model.OpenAIModelList
 
