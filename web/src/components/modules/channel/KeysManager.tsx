@@ -57,10 +57,12 @@ export function KeysManagerDialog({
     onStrategyChange: (strategy: string) => void;
     onClose: () => void;
 }) {
-    const [editing, setEditing] = useState(false);
+    const [editing, setEditing] = useState(initialKeys.length === 0); // 新建/空池直接进编辑
     const [draft, setDraft] = useState(initialKeys.join('\n'));
     const [saving, setSaving] = useState(false);
-    const { data: statusList, refetch } = useChannelKeysStatus(channelId, true);
+    // 新建渠道(channelId=0)时无渠道 id, 不查询状态, 纯编辑模式
+    const hasChannel = channelId > 0;
+    const { data: statusList, refetch } = useChannelKeysStatus(channelId, hasChannel);
     const disableKey = useDisableChannelKey();
     const recoverKey = useRecoverChannelKey();
 
@@ -79,6 +81,11 @@ export function KeysManagerDialog({
         onSave(draftKeys);
         setSaving(false);
         setEditing(false);
+        if (!hasChannel) {
+            toast.success(`已保存 ${draftKeys.length} 个 key，创建渠道时生效`);
+        } else {
+            toast.success(`已保存 ${draftKeys.length} 个 key`);
+        }
     };
 
     const statusMap = useMemo(() => {
@@ -202,7 +209,9 @@ export function KeysManagerDialog({
                                             )}
                                         </div>
                                         <div className="flex shrink-0 items-center gap-1">
-                                            {st?.disabled ? (
+                                            {!hasChannel ? (
+                                                <span className="text-[10px] text-muted-foreground">保存渠道后可用</span>
+                                            ) : st?.disabled ? (
                                                 <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs" disabled={pendingOps} onClick={() => handleDisable(key, false)}>
                                                     <CheckCircle2 className="h-3 w-3 mr-1" />启用
                                                 </Button>

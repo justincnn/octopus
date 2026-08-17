@@ -8,10 +8,12 @@ import {
 import { useCreateChannel, ChannelType, AutoGroupType } from '@/api/endpoints/channel';
 import { useTranslations } from 'use-intl';
 import { ChannelForm, splitPool, type ChannelFormData } from './Form';
+import { KeysManagerDialog } from './KeysManager';
 
 export function CreateDialogContent() {
     const { setIsOpen } = useMorphingDialog();
     const createChannel = useCreateChannel();
+    const [showKeysManager, setShowKeysManager] = useState(false);
     const [formData, setFormData] = useState<ChannelFormData>({
         name: '',
         type: ChannelType.OpenAIChat,
@@ -117,8 +119,22 @@ export function CreateDialogContent() {
                     submitText={t('submit')}
                     pendingText={t('submitting')}
                     idPrefix="new-channel"
+                    onOpenKeysManager={() => setShowKeysManager(true)}
                 />
             </MorphingDialogDescription>
+            {showKeysManager && (
+                <KeysManagerDialog
+                    channelId={0}
+                    initialKeys={formData.keys ?? []}
+                    strategy={formData.key_strategy ?? 'priority'}
+                    onSave={(keys) => {
+                        setFormData((prev) => ({ ...prev, keys }));
+                        setShowKeysManager(false);
+                    }}
+                    onStrategyChange={(s) => setFormData((prev) => ({ ...prev, key_strategy: s }))}
+                    onClose={() => setShowKeysManager(false)}
+                />
+            )}
         </div>
     );
 }
