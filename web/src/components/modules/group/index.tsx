@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { GroupCard } from './Card';
+import { GroupListRow } from './GroupListRow';
 import { useGroupList } from '@/api/endpoints/group';
 import { useSearchStore, useToolbarViewOptionsStore } from '@/components/modules/toolbar';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
@@ -7,6 +8,7 @@ import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
 export function Group() {
     const { data: groups } = useGroupList();
     const pageKey = 'group' as const;
+    const layout = useToolbarViewOptionsStore((s) => s.getLayout(pageKey));
     const searchTerm = useSearchStore((s) => s.getSearchTerm(pageKey));
     const sortField = useToolbarViewOptionsStore((s) => s.getSortField(pageKey));
     const sortOrder = useToolbarViewOptionsStore((s) => s.getSortOrder(pageKey));
@@ -31,6 +33,16 @@ export function Group() {
 
         return byName;
     }, [sortedGroups, searchTerm, filter]);
+
+    if (layout === 'list') {
+        return (
+            <div className="flex flex-col gap-2">
+                {visibleGroups.map((group) => (
+                    <GroupListRow key={group.id ?? group.name} group={group} />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <VirtualizedGrid

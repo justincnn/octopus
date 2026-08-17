@@ -31,7 +31,89 @@ interface EditDialogContentProps {
     onSubmit: (values: GroupEditorValues, onDone?: () => void) => void;
 }
 
-function EditDialogContent({ group, displayMembers, isSubmitting, onSubmit }: EditDialogContentProps) {
+/** 构建分组显示成员(enabled 前置排序, 纯展示不改 priority)。卡片/列表行共用。 */
+export function buildDisplayMembers(group: Group, channelNameByKey: Map<string, string>): SelectedMember[] {
+    return [...(group.items || [])]
+        .sort((a, b) => {
+            const aOn = (a.enabled ?? true) ? 1 : 0;
+            const bOn = (b.enabled ?? true) ? 1 : 0;
+            if (aOn !== bOn) return bOn - aOn;
+            return a.priority - b.priority;
+        })
+        .map((item) => ({
+            id: modelChannelKey(item.channel_id, item.model_name),
+            name: item.model_name,
+            enabled: true,
+            item_enabled: item.enabled ?? true,
+            channel_id: item.channel_id,
+            channel_name: channelNameByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? `Channel ${item.channel_id}`,
+            item_id: item.id,
+            weight: item.weight,
+        }));
+}
+
+/** 组装分组更新 payload(差异提交: 只发变化的字段)。卡片/列表行共用。 */
+export function buildGroupUpdatePayload(group: Group, values: GroupEditorValues): GroupUpdateRequest {
+    const originalItems = [...(group.items || [])].sort((a, b) => a.priority - b.priority);
+    const originalById = new Map<number, { priority: number; weight: number; enabled: boolean }>();
+    const originalIds = new Set<number>();
+    originalItems.forEach((it) => {
+        if (typeof it.id === 'number') {
+            originalIds.add(it.id);
+            originalById.set(it.id, { priority: it.priority, weight: it.weight, enabled: it.enabled ?? true });
+        }
+    });
+
+    const newIds = new Set<number>();
+    values.members.forEach((m) => { if (typeof m.item_id === 'number') newIds.add(m.item_id); });
+
+    const items_to_delete = Array.from(originalIds).filter((id) => !newIds.has(id));
+
+    const items_to_add = values.members
+        .map((m, idx) => ({ m, priority: idx + 1 }))
+        .filter(({ m }) => typeof m.item_id !== 'number')
+        .map(({ m, priority }) => ({
+            channel_id: m.channel_id,
+            model_name: m.name,
+            priority,
+            weight: m.weight ?? 1,
+        }));
+
+    const items_to_update = values.members
+        .map((m, idx) => ({ m, priority: idx + 1 }))
+        .filter(({ m }) => typeof m.item_id === 'number')
+        .map(({ m, priority }) => {
+            const id = m.item_id!;
+            const orig = originalById.get(id);
+            const weight = m.weight ?? 1;
+            const enabled = m.item_enabled ?? true;
+            if (!orig) return null;
+            if (orig.priority === priority && orig.weight === weight && orig.enabled === enabled) return null;
+            return { id, priority, weight, enabled };
+        })
+        .filter((x): x is { id: number; priority: number; weight: number; enabled: boolean } => x !== null);
+
+    // 调用方(卡片/列表行)已校验 group.id 非空; ?? 0 仅为类型安抚
+    const payload: GroupUpdateRequest = { id: group.id ?? 0 };
+    const nextName = values.name.trim();
+    const nextRegex = (values.match_regex ?? '').trim();
+    const nextFirstTokenTimeOut = values.first_token_time_out ?? 0;
+    const nextSessionKeepTime = values.session_keep_time ?? 0;
+
+    if (nextName && nextName !== group.name) payload.name = nextName;
+    if (values.mode !== group.mode) payload.mode = values.mode;
+    if (values.item_strategy && values.item_strategy !== (group.item_strategy ?? 'round_robin')) payload.item_strategy = values.item_strategy;
+    if (nextRegex !== (group.match_regex ?? '')) payload.match_regex = nextRegex;
+    if (nextFirstTokenTimeOut !== (group.first_token_time_out ?? 0)) payload.first_token_time_out = nextFirstTokenTimeOut;
+    if (nextSessionKeepTime !== (group.session_keep_time ?? 0)) payload.session_keep_time = nextSessionKeepTime;
+    if (items_to_add.length) payload.items_to_add = items_to_add;
+    if (items_to_update.length) payload.items_to_update = items_to_update;
+    if (items_to_delete.length) payload.items_to_delete = items_to_delete;
+
+    return payload;
+}
+
+export function EditDialogContent({ group, displayMembers, isSubmitting, onSubmit }: EditDialogContentProps) {
     const { setIsOpen } = useMorphingDialog();
     const t = useTranslations('group');
     return (
@@ -81,26 +163,9 @@ export function GroupCard({ group }: { group: Group }) {
 
     const channelNameByKey = useMemo(() => buildChannelNameByModelKey(modelChannels), [modelChannels]);
 
-    const displayMembers = useMemo((): SelectedMember[] =>
-        [...(group.items || [])]
-            // 展示排序: 启用的排前列(组内按 priority), 禁用的排后列——纯展示, 不改 priority
-            .sort((a, b) => {
-                const aOn = (a.enabled ?? true) ? 1 : 0;
-                const bOn = (b.enabled ?? true) ? 1 : 0;
-                if (aOn !== bOn) return bOn - aOn;
-                return a.priority - b.priority;
-            })
-            .map((item) => ({
-                id: modelChannelKey(item.channel_id, item.model_name),
-                name: item.model_name,
-                enabled: true,
-                item_enabled: item.enabled ?? true,
-                channel_id: item.channel_id,
-                channel_name: channelNameByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? `Channel ${item.channel_id}`,
-                item_id: item.id,
-                weight: item.weight,
-            })),
-        [group.items, channelNameByKey]
+    const displayMembers = useMemo(
+        () => buildDisplayMembers(group, channelNameByKey),
+        [group, channelNameByKey]
     );
 
     useEffect(() => {
@@ -171,61 +236,7 @@ export function GroupCard({ group }: { group: Group }) {
 
     const handleSubmitEdit = useCallback((values: GroupEditorValues, onDone?: () => void) => {
         if (!group.id) return;
-
-        const originalItems = [...(group.items || [])].sort((a, b) => a.priority - b.priority);
-        const originalById = new Map<number, { priority: number; weight: number; enabled: boolean }>();
-        const originalIds = new Set<number>();
-        originalItems.forEach((it) => {
-            if (typeof it.id === 'number') {
-                originalIds.add(it.id);
-                originalById.set(it.id, { priority: it.priority, weight: it.weight, enabled: it.enabled ?? true });
-            }
-        });
-
-        const newIds = new Set<number>();
-        values.members.forEach((m) => { if (typeof m.item_id === 'number') newIds.add(m.item_id); });
-
-        const items_to_delete = Array.from(originalIds).filter((id) => !newIds.has(id));
-
-        const items_to_add = values.members
-            .map((m, idx) => ({ m, priority: idx + 1 }))
-            .filter(({ m }) => typeof m.item_id !== 'number')
-            .map(({ m, priority }) => ({
-                channel_id: m.channel_id,
-                model_name: m.name,
-                priority,
-                weight: m.weight ?? 1,
-            }));
-
-        const items_to_update = values.members
-            .map((m, idx) => ({ m, priority: idx + 1 }))
-            .filter(({ m }) => typeof m.item_id === 'number')
-            .map(({ m, priority }) => {
-                const id = m.item_id!;
-                const orig = originalById.get(id);
-                const weight = m.weight ?? 1;
-                const enabled = m.item_enabled ?? true;
-                if (!orig) return null;
-                if (orig.priority === priority && orig.weight === weight && orig.enabled === enabled) return null;
-                return { id, priority, weight, enabled };
-            })
-            .filter((x): x is { id: number; priority: number; weight: number; enabled: boolean } => x !== null);
-
-        const payload: GroupUpdateRequest = { id: group.id };
-        const nextName = values.name.trim();
-        const nextRegex = (values.match_regex ?? '').trim();
-        const nextFirstTokenTimeOut = values.first_token_time_out ?? 0;
-        const nextSessionKeepTime = values.session_keep_time ?? 0;
-
-        if (nextName && nextName !== group.name) payload.name = nextName;
-        if (values.mode !== group.mode) payload.mode = values.mode;
-        if (values.item_strategy && values.item_strategy !== (group.item_strategy ?? 'round_robin')) payload.item_strategy = values.item_strategy;
-        if (nextRegex !== (group.match_regex ?? '')) payload.match_regex = nextRegex;
-        if (nextFirstTokenTimeOut !== (group.first_token_time_out ?? 0)) payload.first_token_time_out = nextFirstTokenTimeOut;
-        if (nextSessionKeepTime !== (group.session_keep_time ?? 0)) payload.session_keep_time = nextSessionKeepTime;
-        if (items_to_add.length) payload.items_to_add = items_to_add;
-        if (items_to_update.length) payload.items_to_update = items_to_update;
-        if (items_to_delete.length) payload.items_to_delete = items_to_delete;
+        const payload = buildGroupUpdatePayload(group, values);
 
         if (Object.keys(payload).length === 1) {
             onDone?.();
@@ -239,7 +250,7 @@ export function GroupCard({ group }: { group: Group }) {
             },
             onError,
         });
-    }, [group.first_token_time_out, group.session_keep_time, group.id, group.items, group.match_regex, group.mode, group.name, onSuccess, onError, updateGroup]);
+    }, [group, onSuccess, onError, updateGroup]);
 
     return (
         <article className="flex flex-col rounded-3xl border border-border bg-card text-card-foreground p-4 custom-shadow">
