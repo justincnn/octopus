@@ -213,9 +213,6 @@
             "loadFailed": "Failed to load",
             "form": {
                 "name": "Name",
-                "maxCost": "Max Cost",
-                "maxCostPlaceholder": "Enter amount",
-                "unlimited": "Unlimited",
                 "expireAt": "Expire Date",
                 "selectDate": "Select date",
                 "neverExpire": "Never Expire",

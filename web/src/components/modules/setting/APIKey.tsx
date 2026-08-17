@@ -51,12 +51,6 @@ function normalizeHHmm(input: string): string {
     return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
 }
 
-function normalizeMoneyInput(input: string): string {
-    const cleaned = input.replace(/[^\d.]/g, '');
-    const [intPart, ...rest] = cleaned.split('.');
-    return rest.length > 0 ? `${intPart}.${rest.join('').slice(0, 6)}` : intPart;
-}
-
 function toggleModel(current: string | undefined, model: string): string | undefined {
     const models = current ? current.split(',').filter(Boolean) : [];
     const next = models.includes(model)
@@ -85,12 +79,8 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
         name: apiKey?.name ?? '',
         enabled: apiKey?.enabled ?? true,
         expire_at: apiKey?.expire_at,
-        max_cost: apiKey?.max_cost,
         supported_models: apiKey?.supported_models,
     }));
-    const [maxCostInput, setMaxCostInput] = useState(() =>
-        apiKey?.max_cost != null ? String(apiKey.max_cost) : ''
-    );
     const [expireTime, setExpireTime] = useState(() => {
         if (apiKey?.expire_at) {
             const d = new Date(apiKey.expire_at * 1000);
@@ -109,7 +99,6 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
 
     const expireDate = parseExpireDate(form.expire_at);
     const neverExpire = !form.expire_at;
-    const isUnlimitedCost = maxCostInput.trim() === '';
 
     const expireLabel = neverExpire
         ? t('apiKey.form.neverExpire')
@@ -146,18 +135,6 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
         }
     }, [neverExpire, expireTime, updateForm]);
 
-    const handleMaxCostChange = useCallback((val: string) => {
-        const normalized = normalizeMoneyInput(val);
-        setMaxCostInput(normalized);
-        const num = parseFloat(normalized);
-        updateForm({ max_cost: Number.isFinite(num) ? num : undefined });
-    }, [updateForm]);
-
-    const handleClearMaxCost = useCallback(() => {
-        setMaxCostInput('');
-        updateForm({ max_cost: undefined });
-    }, [updateForm]);
-
     const handleSubmit = useCallback((e: React.FormEvent) => {
         e.preventDefault();
         if (!form.name.trim()) return;
@@ -177,39 +154,6 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
                     required
                 />
             </label>
-
-            <div className="grid gap-1 text-xs text-muted-foreground">
-                {t('apiKey.form.maxCost')}
-                <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                        <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder={t('apiKey.form.maxCostPlaceholder')}
-                            value={maxCostInput}
-                            onChange={(e) => handleMaxCostChange(e.target.value)}
-                            className="h-9 text-sm rounded-xl pl-7"
-                            disabled={isPending}
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleClearMaxCost}
-                        disabled={isPending}
-                        aria-pressed={isUnlimitedCost}
-                        className={cn(
-                            'h-9 px-3 rounded-xl border text-sm transition-colors shrink-0',
-                            isUnlimitedCost
-                                ? 'bg-primary text-primary-foreground border-primary/30'
-                                : 'border-border bg-muted/20 text-foreground hover:bg-muted/30',
-                            isPending && 'opacity-50 cursor-not-allowed'
-                        )}
-                    >
-                        {t('apiKey.form.unlimited')}
-                    </button>
-                </div>
-            </div>
 
             <div className="grid gap-1 text-xs text-muted-foreground">
                 {t('apiKey.form.expireAt')}

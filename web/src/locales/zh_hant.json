@@ -213,9 +213,6 @@
             "loadFailed": "載入失敗",
             "form": {
                 "name": "名稱",
-                "maxCost": "最大金額",
-                "maxCostPlaceholder": "請輸入金額",
-                "unlimited": "無限制",
                 "expireAt": "過期日期",
                 "selectDate": "選擇日期",
                 "neverExpire": "永不過期",

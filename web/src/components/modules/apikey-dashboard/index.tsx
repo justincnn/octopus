@@ -20,7 +20,6 @@ import {
     KeyRound,
     LogOut,
     Calendar,
-    Wallet,
     Copy,
     Sun,
     Moon,
@@ -30,7 +29,6 @@ import {
     Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import dayjs from 'dayjs';
 
 export function APIKeyDashboard() {
@@ -69,10 +67,6 @@ export function APIKeyDashboard() {
     }
 
     const { stats, info } = data;
-
-    // Quota calculations
-    const usedCost = stats.total_cost.raw;
-    const maxCost = info.max_cost || 0;
 
     // Expiry calculations
     const expireAt = info.expire_at ? dayjs.unix(info.expire_at) : null;
@@ -162,23 +156,13 @@ export function APIKeyDashboard() {
                                     </div>
                                 </div>
                             </div>
-                            {/* Right: Quota visual */}
+                            {/* Right: 总花费 */}
                             <div className="relative flex flex-col justify-center border-t bg-muted/30 p-6 md:border-l md:border-t-0 md:p-8">
-                                <Wallet aria-hidden="true" className="pointer-events-none absolute top-6 right-6 h-27 w-27 text-muted-foreground/10" />
                                 <div className="text-lg text-muted-foreground uppercase tracking-wider mb-2">{t('totalCost')}</div>
                                 <div className="text-6xl font-bold text-chart-1">
                                     <AnimatedNumber value={stats.total_cost.formatted.value} />
                                     <span className="text-lg font-normal text-muted-foreground ml-1">{stats.total_cost.formatted.unit}</span>
                                 </div>
-                                {maxCost > 0 && (
-                                    <div className="mt-4">
-                                        <Progress value={Math.min(100, (usedCost / maxCost) * 100)} className="h-4 *:data-[slot=progress-indicator]:bg-chart-1" />
-                                        <div className="flex justify-between text-sm text-muted-foreground mt-1">
-                                            <span>0</span>
-                                            <span>{maxCost.toFixed(2)} $</span>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

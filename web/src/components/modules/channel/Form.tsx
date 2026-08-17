@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, Check, Search } from 'lucide-react';
+import { RefreshCw, X, Plus, Check, Search, Eye, EyeOff } from 'lucide-react';
 
 export interface ChannelFormData {
     name: string;
@@ -82,6 +82,7 @@ export function ChannelForm({
         : [];
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
+    const [showKey, setShowKey] = useState(false);
 
     const fetchModel = useFetchModel();
 
@@ -251,15 +252,26 @@ export function ChannelForm({
                 <label htmlFor={`${idPrefix}-key`} className="text-sm font-medium text-card-foreground">
                     {t('apiKey')}
                 </label>
-                <Input
-                    id={`${idPrefix}-key`}
-                    type="text"
-                    value={formData.key}
-                    onChange={(event) => onFormDataChange({ ...formData, key: event.target.value })}
-                    placeholder={t('apiKey')}
-                    required
-                    className="rounded-xl"
-                />
+                <div className="relative">
+                    <Input
+                        id={`${idPrefix}-key`}
+                        type={showKey ? 'text' : 'password'}
+                        value={formData.key}
+                        onChange={(event) => onFormDataChange({ ...formData, key: event.target.value })}
+                        placeholder={t('apiKey')}
+                        required
+                        className="rounded-xl pr-10"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowKey((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        tabIndex={-1}
+                        aria-label={showKey ? t('hideKey') : t('showKey')}
+                    >
+                        {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-2">

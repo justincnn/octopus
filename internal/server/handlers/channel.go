@@ -66,8 +66,18 @@ func listChannel(c *gin.Context) {
 	for i, channel := range channels {
 		stats := op.StatsChannelGet(channel.ID)
 		channels[i].Stats = &stats
+		// key 打码: 列表只回显首尾, 编辑时前端不改就不提交(update 是 patch 语义)
+		channels[i].Key = maskKey(channel.Key)
 	}
 	resp.Success(c, channels)
+}
+
+// maskKey 渠道 key 打码: 保留前3后4, 中间用 ****。
+func maskKey(key string) string {
+	if len(key) <= 8 {
+		return "****"
+	}
+	return key[:3] + "****" + key[len(key)-4:]
 }
 
 func createChannel(c *gin.Context) {
