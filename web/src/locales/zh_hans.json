@@ -427,6 +427,9 @@
             "subtitle": "渠道里还没有价格的模型",
             "empty": "全部模型都已匹配价格 🎉",
             "matchBtn": "匹配",
+            "matchAllBtn": "一键批量匹配",
+            "matchAllHint": "列出全部候选，逐条确认后生效",
+            "confirmBtn": "确认",
             "noCandidate": "无匹配候选",
             "ariaLabel": "未匹配模型"
         }

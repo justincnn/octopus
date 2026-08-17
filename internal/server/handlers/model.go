@@ -55,6 +55,10 @@ func init() {
 				Handle(matchModel),
 		).
 		AddRoute(
+			router.NewRoute("/match-all", http.MethodGet).
+				Handle(matchAllModels),
+		).
+		AddRoute(
 			router.NewRoute("/alias", http.MethodPost).
 				Handle(setModelAlias),
 		).
@@ -214,6 +218,23 @@ func matchModel(c *gin.Context) {
 		return
 	}
 	resp.Success(c, price.MatchCandidates(req.Name))
+}
+
+// matchAllModels 对全部未匹配模型批量跑匹配, 返回只读候选(不写库), 供前端一键展开逐条确认。
+func matchAllModels(c *gin.Context) {
+	models, err := price.UnmatchedModels(c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	out := make([]price.BatchMatchResult, 0, len(models))
+	for _, name := range models {
+		cands := price.MatchCandidates(name)
+		if len(cands) > 0 {
+			out = append(out, price.BatchMatchResult{Name: name, Candidates: cands})
+		}
+	}
+	resp.Success(c, out)
 }
 
 func setModelAlias(c *gin.Context) {

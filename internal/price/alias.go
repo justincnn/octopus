@@ -118,6 +118,12 @@ type MatchCandidate struct {
 	Reason      string         `json:"reason"` // exact / prefix_mapping / derive / contains
 }
 
+// BatchMatchResult 批量匹配返回: 一个未匹配模型名 + 它的候选列表。
+type BatchMatchResult struct {
+	Name       string           `json:"name"`
+	Candidates []MatchCandidate `json:"candidates"`
+}
+
 // MatchCandidates 对渠道模型名返回模糊匹配候选(按优先级: 别名表 → 全量目录精配 → 剥壳派生 → 包含)。
 // 返回空 = 无匹配。
 func MatchCandidates(name string) []MatchCandidate {

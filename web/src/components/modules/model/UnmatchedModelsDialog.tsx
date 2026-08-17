@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { Search, Tags, Loader2, ChevronRight, X } from 'lucide-react';
+import { Search, Tags, Loader2, ChevronRight, X, Sparkles } from 'lucide-react';
 import {
     useUnmatchedModels,
     useMatchModel,
+    useMatchAll,
     useSetModelAlias,
     type ModelMatchCandidate,
 } from '@/api/endpoints/model';
@@ -19,8 +20,9 @@ export function UnmatchedModelsDialog() {
     const t = useTranslations('model');
     const { data: unmatched, refetch } = useUnmatchedModels();
     const match = useMatchModel();
+    const matchAll = useMatchAll();
     const setAlias = useSetModelAlias();
-    const [expanded, setExpanded] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [candidates, setCandidates] = useState<Record<string, ModelMatchCandidate[]>>({});
     const [loadingName, setLoadingName] = useState<string | null>(null);
 
@@ -31,18 +33,46 @@ export function UnmatchedModelsDialog() {
     }, []);
 
     const handleMatch = (name: string) => {
-        if (expanded === name) {
-            setExpanded(null);
+        if (expanded.has(name)) {
+            setExpanded((prev) => {
+                const next = new Set(prev);
+                next.delete(name);
+                return next;
+            });
             return;
         }
+        setExpanded((prev) => new Set(prev).add(name));
         setLoadingName(name);
         match.mutate(name, {
             onSuccess: (res) => {
                 setCandidates((prev) => ({ ...prev, [name]: res }));
-                setExpanded(name);
+            },
+            onError: (err) => {
+                setExpanded((prev) => {
+                    const next = new Set(prev);
+                    next.delete(name);
+                    return next;
+                });
+                toast.error(t('toast.matchFailed'), { description: err.message });
+            },
+            onSettled: () => setLoadingName(null),
+        });
+    };
+
+    const handleMatchAll = () => {
+        matchAll.mutate(undefined, {
+            onSuccess: (res) => {
+                const map: Record<string, ModelMatchCandidate[]> = {};
+                res.forEach((r) => {
+                    map[r.name] = r.candidates;
+                });
+                setCandidates((prev) => ({ ...prev, ...map }));
+                setExpanded((prev) => new Set([...prev, ...res.map((r) => r.name)]));
+                if (res.length > 0) {
+                    toast.success(`${res.length} 个模型已批量匹配，请逐条确认`);
+                }
             },
             onError: (err) => toast.error(t('toast.matchFailed'), { description: err.message }),
-            onSettled: () => setLoadingName(null),
         });
     };
 
@@ -50,7 +80,11 @@ export function UnmatchedModelsDialog() {
         setAlias.mutate({ src, canonical: candidate.canonical_id }, {
             onSuccess: () => {
                 toast.success(`${src} → ${candidate.canonical_id}`);
-                setExpanded(null);
+                setExpanded((prev) => {
+                    const next = new Set(prev);
+                    next.delete(src);
+                    return next;
+                });
             },
             onError: (err) => toast.error(t('toast.aliasSetFailed'), { description: err.message }),
         });
@@ -74,6 +108,26 @@ export function UnmatchedModelsDialog() {
                 <span className="text-xs text-muted-foreground">{t('unmatched.subtitle')}</span>
             </div>
 
+            {!isEmpty && (
+                <div className="pb-2 flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleMatchAll}
+                        disabled={matchAll.isPending}
+                        className="rounded-lg"
+                    >
+                        {matchAll.isPending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                            <Sparkles className="size-3.5" />
+                        )}
+                        {t('unmatched.matchAllBtn')}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">{t('unmatched.matchAllHint')}</span>
+                </div>
+            )}
+
             <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5">
                 {isEmpty ? (
                     <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
@@ -82,7 +136,7 @@ export function UnmatchedModelsDialog() {
                     </div>
                 ) : (
                     items.map((name) => {
-                        const isOpen = expanded === name;
+                        const isOpen = expanded.has(name);
                         const cands = candidates[name];
                         return (
                             <div key={name} className="rounded-xl border border-border bg-muted/10 overflow-hidden">
@@ -138,7 +192,7 @@ export function UnmatchedModelsDialog() {
                                                             'bg-primary/10 text-primary'
                                                         )}
                                                     >
-                                                        匹配
+                                                        {t('unmatched.confirmBtn')}
                                                     </span>
                                                 </button>
                                             ))

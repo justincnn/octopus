@@ -427,6 +427,9 @@
             "subtitle": "Channel models without a price",
             "empty": "All models matched 🎉",
             "matchBtn": "Match",
+            "matchAllBtn": "Match All",
+            "matchAllHint": "List all candidates, confirm one by one",
+            "confirmBtn": "Confirm",
             "noCandidate": "No candidates",
             "ariaLabel": "Unmatched models"
         }

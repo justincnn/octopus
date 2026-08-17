@@ -181,6 +181,12 @@ export interface ModelMatchCandidate {
     };
 }
 
+/** 批量匹配结果: 模型名 + 候选列表 */
+export interface BatchMatchResult {
+    name: string;
+    candidates: ModelMatchCandidate[];
+}
+
 /** 获取所有渠道里未匹配价格的模型名 */
 export function useUnmatchedModels(enabled = true) {
     return useQuery({
@@ -196,6 +202,13 @@ export function useMatchModel() {
     return useMutation({
         mutationFn: (name: string) =>
             apiRequest<ModelMatchCandidate[]>('/api/v1/model/match', { method: 'POST', body: { name } }),
+    });
+}
+
+/** 一键批量匹配: 对全部未匹配模型返回只读候选, 前端逐条确认后才写别名 */
+export function useMatchAll() {
+    return useMutation({
+        mutationFn: () => apiRequest<BatchMatchResult[]>('/api/v1/model/match-all'),
     });
 }
 
