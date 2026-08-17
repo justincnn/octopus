@@ -279,7 +279,7 @@ export function ChannelForm({
                 <div className="relative">
                     <Input
                         id={`${idPrefix}-key`}
-                        type={showKey ? 'text' : 'password'}
+                        type="text"
                         value={formData.key}
                         onChange={(event) => onFormDataChange({ ...formData, key: event.target.value })}
                         placeholder={t('apiKey')}
