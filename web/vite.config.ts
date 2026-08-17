@@ -1,23 +1,21 @@
 import path from 'node:path';
-import react from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
   plugins: [
-    react({
-      babel: {
-        plugins: ['babel-plugin-react-compiler'],
-      },
-    }),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   build: {
-    outDir: path.resolve(__dirname, '../static/out'),
+    outDir: path.resolve(import.meta.dirname, '../static/out'),
     emptyOutDir: true,
   },
   server: {

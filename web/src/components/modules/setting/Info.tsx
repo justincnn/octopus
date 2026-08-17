@@ -1,5 +1,5 @@
 import { useTranslations } from 'use-intl';
-import { Info, Tag, Github } from 'lucide-react';
+import { Info, Tag, GitFork } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO } from '@/lib/info';
 
 export function SettingInfo() {
@@ -14,7 +14,7 @@ export function SettingInfo() {
             {/* GitHub 仓库 */}
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <Github className="h-5 w-5 text-muted-foreground" />
+                    <GitFork className="h-5 w-5 text-muted-foreground" />
                     <span className="text-sm font-medium">{t('info.github')}</span>
                 </div>
                 <a
