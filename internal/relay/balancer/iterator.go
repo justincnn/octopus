@@ -13,6 +13,7 @@ type Iterator struct {
 	candidates []model.GroupItem
 	index      int
 	stickyIdx  int    // 粘性通道在 candidates 中的位置，-1 表示无
+	stickyKeyIdx int  // 粘性会话记录的 key 下标(多 key 轮询用), -1 表示无
 	modelName  string // 请求模型名（用于熔断检查）
 
 	// 内嵌追踪
@@ -27,9 +28,11 @@ func NewIterator(group model.Group, apiKeyID int, requestModel string) *Iterator
 	candidates := b.Candidates(group.Items)
 
 	stickyIdx := -1
+	stickyKeyIdx := -1
 	if group.SessionKeepTime > 0 {
 		stickyTTL := time.Duration(group.SessionKeepTime) * time.Second
 		if sticky := GetSticky(apiKeyID, requestModel, stickyTTL); sticky != nil {
+			stickyKeyIdx = sticky.ChannelKeyID // 多 key 轮询: 会话记住的 key 下标
 			for i, item := range candidates {
 				if item.ChannelID == sticky.ChannelID {
 					if i > 0 {
@@ -46,10 +49,11 @@ func NewIterator(group model.Group, apiKeyID int, requestModel string) *Iterator
 	}
 
 	return &Iterator{
-		candidates: candidates,
-		index:      -1,
-		stickyIdx:  stickyIdx,
-		modelName:  requestModel,
+		candidates:   candidates,
+		index:        -1,
+		stickyIdx:    stickyIdx,
+		stickyKeyIdx: stickyKeyIdx,
+		modelName:    requestModel,
 	}
 }
 
@@ -67,6 +71,15 @@ func (it *Iterator) Item() model.GroupItem {
 // IsSticky 当前候选是否为粘性通道
 func (it *Iterator) IsSticky() bool {
 	return it.stickyIdx >= 0 && it.index == it.stickyIdx
+}
+
+// StickyKeyIdx 返回粘性会话记录的 key 下标(多 key 轮询用; -1 表示无/单 key)。
+// stickyIdx 是粘性通道在 candidates 中的位置, 由 NewIterator 从 GetSticky 结果初始化。
+func (it *Iterator) StickyKeyIdx() int {
+	if it.stickyIdx < 0 {
+		return -1
+	}
+	return it.stickyKeyIdx
 }
 
 // Len 返回候选列表长度

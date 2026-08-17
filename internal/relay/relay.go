@@ -136,7 +136,13 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		return nil, nil
 	}
 
+	// 多 key 轮询: sticky 命中优先, 否则 RR 跳过 invalid/disabled
+	keyIdx := -1
 	key := channel.Key
+	if len(channel.Keys) > 0 || channel.Key != "" {
+		stickyIdx := r.iter.StickyKeyIdx()
+		key, keyIdx = nextKey(channel, stickyIdx)
+	}
 	if key == "" {
 		r.iter.Skip(channel.ID, channel.ID, channel.Name, "no available key")
 		return nil, nil
@@ -169,6 +175,7 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		outAdapter: outAdapter,
 		channel:    channel,
 		key:        key,
+		keyIdx:     keyIdx,
 	}, nil
 }
 
@@ -189,7 +196,10 @@ func (ra *relayAttempt) run() (bool, error) {
 			RequestSuccess: 1,
 		})
 		balancer.RecordSuccess(ra.channel.ID, ra.channel.ID, ra.internalRequest.Model)
-		balancer.SetSticky(ra.metrics.APIKeyID, ra.metrics.RequestModel, ra.channel.ID, ra.channel.ID)
+		// sticky 记录 key 下标(多 key 轮询时同会话固定同一 key)
+		balancer.SetSticky(ra.metrics.APIKeyID, ra.metrics.RequestModel, ra.channel.ID, ra.keyIdx)
+		// 成功复位 key 失败计数
+		markKeySuccess(ra.channel, ra.key)
 		return false, nil
 	}
 
@@ -199,6 +209,14 @@ func (ra *relayAttempt) run() (bool, error) {
 		RequestFailed: 1,
 	})
 	balancer.RecordFailure(ra.channel.ID, ra.channel.ID, ra.internalRequest.Model)
+	// 按状态码分类记录 key 失败: 401/403→invalid, 429→rate_limited, 其他→upstream_error
+	if upstreamStatusCode == http.StatusUnauthorized || upstreamStatusCode == http.StatusForbidden {
+		markKeyFail(ra.channel, ra.key, KeyReasonInvalid)
+	} else if upstreamStatusCode == http.StatusTooManyRequests {
+		markKeyFail(ra.channel, ra.key, KeyReasonRateLimited)
+	} else {
+		markKeyFail(ra.channel, ra.key, KeyReasonUpstreamError)
+	}
 
 	return ra.c.Writer.Written(), fmt.Errorf("channel %s failed: %v", ra.channel.Name, fwdErr)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/bestruirui/octopus/internal/helper"
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay"
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
@@ -58,6 +59,18 @@ func init() {
 		AddRoute(
 			router.NewRoute("/key/:id", http.MethodGet).
 				Handle(getChannelKey),
+		).
+		AddRoute(
+			router.NewRoute("/keys/status", http.MethodGet).
+				Handle(getChannelKeysStatus),
+		).
+		AddRoute(
+			router.NewRoute("/keys/disable", http.MethodPost).
+				Handle(disableChannelKey),
+		).
+		AddRoute(
+			router.NewRoute("/keys/recover", http.MethodPost).
+				Handle(recoverChannelKey),
 		)
 }
 
@@ -97,6 +110,84 @@ func getChannelKey(c *gin.Context) {
 		return
 	}
 	resp.Success(c, gin.H{"key": channel.Key})
+}
+
+// getChannelKeysStatus 返回渠道多 key 池状态列表(管理端展示: key/状态/原因/上次失败时间)。
+func getChannelKeysStatus(c *gin.Context) {
+	id, err := strconv.Atoi(c.Query("channel_id"))
+	if err != nil || id <= 0 {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	channel, err := op.ChannelGet(id, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusNotFound, "channel not found")
+		return
+	}
+	type keyStatus struct {
+		Key        string `json:"key"`
+		Status     string `json:"status"`
+		Reason     string `json:"reason"`
+		Disabled   bool   `json:"disabled"`
+		FailCount  int    `json:"fail_count"`
+		LastFailAt int64  `json:"last_fail_at"`
+	}
+	states := relay.KeyStateSnapshot(channel)
+	out := make([]keyStatus, 0, len(states))
+	for _, st := range states {
+		var lastFail int64
+		if !st.LastFailAt.IsZero() {
+			lastFail = st.LastFailAt.Unix()
+		}
+		out = append(out, keyStatus{
+			Key:        st.Key,
+			Status:     st.Status,
+			Reason:     st.Reason,
+			Disabled:   st.Disabled,
+			FailCount:  st.FailCount,
+			LastFailAt: lastFail,
+		})
+	}
+	resp.Success(c, out)
+}
+
+// disableChannelKey 手动禁用/启用渠道 key。
+func disableChannelKey(c *gin.Context) {
+	var req struct {
+		ChannelID int    `json:"channel_id"`
+		Key       string `json:"key"`
+		Disabled  bool   `json:"disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ChannelID <= 0 || req.Key == "" {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	channel, err := op.ChannelGet(req.ChannelID, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusNotFound, "channel not found")
+		return
+	}
+	relay.DisableKey(channel, req.Key, req.Disabled)
+	resp.Success(c, nil)
+}
+
+// recoverChannelKey 手动恢复渠道 key(清失败计数, 重新参与轮询)。
+func recoverChannelKey(c *gin.Context) {
+	var req struct {
+		ChannelID int    `json:"channel_id"`
+		Key       string `json:"key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ChannelID <= 0 || req.Key == "" {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	channel, err := op.ChannelGet(req.ChannelID, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusNotFound, "channel not found")
+		return
+	}
+	relay.RecoverKey(channel, req.Key)
+	resp.Success(c, nil)
 }
 
 func createChannel(c *gin.Context) {

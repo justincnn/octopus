@@ -28,7 +28,8 @@ type Channel struct {
 	Type          ChannelProvider `json:"type"`                                    // Type 是上游服务提供方。
 	Enabled       bool            `json:"enabled" gorm:"default:true"`            // Enabled 表示渠道是否可用。
 	BaseURL       string          `json:"base_url"`                                // BaseURL 是唯一的上游基础地址。
-	Key           string          `json:"key"`                                     // Key 是唯一的上游访问凭据。
+	Key           string          `json:"key"`                                     // Key 是唯一的上游访问凭据(单 key 渠道用)。
+	Keys          []string        `json:"keys" gorm:"serializer:json"`             // Keys 是多 key 轮询池(为空时回退到 Key)。
 	Model         string          `json:"model"`                                   // Model 是自动同步的模型列表。
 	CustomModel   string          `json:"custom_model"`                            // CustomModel 是手动配置的模型列表。
 	Proxy         bool            `json:"proxy" gorm:"default:false"`             // Proxy 表示是否使用代理。
@@ -58,6 +59,7 @@ type ChannelUpdateRequest struct {
 	Enabled       *bool            `json:"enabled,omitempty"`       // Enabled 是新的启用状态。
 	BaseURL       *string          `json:"base_url,omitempty"`      // BaseURL 是新的上游基础地址。
 	Key           *string          `json:"key,omitempty"`           // Key 是新的上游访问凭据。
+	Keys          *[]string        `json:"keys,omitempty"`          // Keys 是多 key 轮询池(传空数组=清空回退单 key)。
 	Model         *string          `json:"model,omitempty"`         // Model 是新的自动同步模型列表。
 	CustomModel   *string          `json:"custom_model,omitempty"`  // CustomModel 是新的自定义模型列表。
 	Proxy         *bool            `json:"proxy,omitempty"`         // Proxy 是新的代理开关。

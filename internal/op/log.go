@@ -162,6 +162,28 @@ func relayLogCleanup(ctx context.Context) error {
 	return db.GetDB().WithContext(ctx).Where("time < ?", cutoffTime).Delete(&model.RelayLog{}).Error
 }
 
+// RelayLogLastSuccessModel 查某渠道最近一次调用的模型(key Validator 探测用)。
+func RelayLogLastSuccessModel(channelID int, out *string) error {
+	enabled, err := SettingGetBool(model.SettingKeyRelayLogKeepEnabled)
+	if err == nil && enabled {
+		err = db.GetDB().Where("channel_id = ?", channelID).
+			Order("id DESC").Limit(1).Pluck("actual_model_name", out).Error
+		if err == nil && *out != "" {
+			return nil
+		}
+	}
+	// 缓存兜底: 内存日志里找最近
+	relayLogCacheLock.Lock()
+	defer relayLogCacheLock.Unlock()
+	for i := len(relayLogCache) - 1; i >= 0; i-- {
+		if relayLogCache[i].ChannelId == channelID && relayLogCache[i].ActualModelName != "" {
+			*out = relayLogCache[i].ActualModelName
+			return nil
+		}
+	}
+	return nil
+}
+
 // RelayLogList 查询日志列表，支持可选的时间范围过滤
 // startTime 和 endTime 为 nil 时表示不限制时间范围
 func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize int) ([]model.RelayLog, error) {

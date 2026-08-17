@@ -26,4 +26,6 @@ type relayAttempt struct {
 	channel    *dbmodel.Channel
 	// key 是本次尝试使用的上游访问凭据(扁平单 key = channel.Key)。
 	key string
+	// keyIdx 是本次使用的 key 在渠道 keys 池中的下标(-1 = 单 key/回退)。
+	keyIdx int
 }
