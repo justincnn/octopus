@@ -335,6 +335,9 @@ func (ra *relayAttempt) writeStream(ctx context.Context, clientStream streams.St
 
 	firstToken := true
 	responseEvents := make([]*httpclient.StreamEvent, 0, 8)
+	// 日志聚合内存封顶: 超限后停止累积(日志只剩 usage 统计, 不再有完整 body 聚合)
+	// ponytail: 固定上限, 长流式不再线性吃内存; 需要完整 body 日志时再加大。
+	const maxLogEvents = 512
 	type sseReadResult struct {
 		event *httpclient.StreamEvent
 		err   error
@@ -423,7 +426,9 @@ func (ra *relayAttempt) writeStream(ctx context.Context, clientStream streams.St
 				continue
 			}
 			// 这里只临时保存 pipeline 已经转换好的客户端格式事件，正常结束后聚合成最终响应体用于日志；不会把分片逐条落库。
-			responseEvents = append(responseEvents, r.event)
+			if len(responseEvents) < maxLogEvents {
+				responseEvents = append(responseEvents, r.event)
+			}
 			if firstToken {
 				ra.metrics.FirstTokenTime = time.Now()
 				firstToken = false
