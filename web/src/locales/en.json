@@ -430,6 +430,12 @@
             "matchAllBtn": "Match All",
             "matchAllHint": "List all candidates, confirm one by one",
             "confirmBtn": "Confirm",
+            "tabUnmatched": "Unmatched",
+            "tabMatched": "Matched",
+            "rematchBtn": "Rematch",
+            "deleteBtn": "Delete",
+            "searchPlaceholder": "Search full price catalog…",
+            "searchEmpty": "No results",
             "noCandidate": "No candidates",
             "ariaLabel": "Unmatched models"
         }

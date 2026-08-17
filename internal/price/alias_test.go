@@ -6,6 +6,38 @@ import (
 	"github.com/bestruirui/octopus/internal/model"
 )
 
+// SearchModels 自检: 精配在前、大小写不敏感、限 20 条。
+func TestSearchModels(t *testing.T) {
+	llmPriceFullLock.Lock()
+	llmPriceFull = map[string]model.LLMPrice{
+		"deepseek-chat":     {Input: 0.14, Output: 0.28},
+		"deepseek-reasoner": {Input: 0.55, Output: 2.0},
+		"gpt-5":             {Input: 1.25, Output: 10.0},
+		"gpt-5-mini":        {Input: 0.75, Output: 4.5},
+	}
+	llmPriceFullLock.Unlock()
+
+	got := SearchModels("DEEPSEEK")
+	if len(got) != 2 {
+		t.Fatalf("want 2 matches, got %d: %+v", len(got), got)
+	}
+	if got[0].CanonicalID != "deepseek-chat" { // 长度升序: chat 比 reasoner 短
+		t.Errorf("first = %q, want deepseek-chat", got[0].CanonicalID)
+	}
+	if got[0].Reason != "search" {
+		t.Errorf("reason = %q, want search", got[0].Reason)
+	}
+	if got[0].Price.Input != 0.14 {
+		t.Errorf("price mismatch: %+v", got[0].Price)
+	}
+	if got := SearchModels("no-such-model-xyz"); len(got) != 0 {
+		t.Errorf("want 0 matches, got %d", len(got))
+	}
+	if got := SearchModels("  "); got != nil {
+		t.Errorf("blank query: want nil, got %+v", got)
+	}
+}
+
 // 模糊匹配自检: 用注入的全量目录(representative entries)验证匹配规则, 不依赖网络/DB。
 func TestMatchCandidates(t *testing.T) {
 	// 模拟 models.dev 全量目录(正常由 UpdateLLMPrice 从网络填充)

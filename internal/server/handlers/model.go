@@ -63,6 +63,14 @@ func init() {
 				Handle(setModelAlias),
 		).
 		AddRoute(
+			router.NewRoute("/alias", http.MethodGet).
+				Handle(listModelAliases),
+		).
+		AddRoute(
+			router.NewRoute("/search", http.MethodGet).
+				Handle(searchModels),
+		).
+		AddRoute(
 			router.NewRoute("/alias", http.MethodDelete).
 				Handle(deleteModelAlias),
 		)
@@ -253,6 +261,21 @@ func setModelAlias(c *gin.Context) {
 	resp.Success(c, nil)
 }
 
+// listModelAliases 返回全部已匹配别名映射 src→canonical, 供前端"已匹配"管理。
+func listModelAliases(c *gin.Context) {
+	aliases, err := op.AliasListAll(c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, aliases)
+}
+
+// searchModels 在全量 models.dev 价格目录里按关键词模糊搜索(只读)。
+func searchModels(c *gin.Context) {
+	resp.Success(c, price.SearchModels(c.Query("q")))
+}
+
 func deleteModelAlias(c *gin.Context) {
 	var req struct {
 		Src string `json:"src" binding:"required"`
@@ -261,7 +284,13 @@ func deleteModelAlias(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	// 删别名必须同时清该模型的价格, 否则 UnmatchedModels 会因"已有价格"跳过它,
+	// 导致模型既不在已匹配列表、也不回未匹配池, 无法重新匹配。
 	if err := op.AliasDelete(req.Src, c.Request.Context()); err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := op.LLMDelete(strings.ToLower(strings.TrimSpace(req.Src)), c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

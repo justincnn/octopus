@@ -430,6 +430,12 @@
             "matchAllBtn": "一鍵批量匹配",
             "matchAllHint": "列出全部候選，逐條確認後生效",
             "confirmBtn": "確認",
+            "tabUnmatched": "未匹配",
+            "tabMatched": "已匹配",
+            "rematchBtn": "重新匹配",
+            "deleteBtn": "刪除",
+            "searchPlaceholder": "搜尋全量價格目錄…",
+            "searchEmpty": "無搜尋結果",
             "noCandidate": "無匹配候選",
             "ariaLabel": "未匹配模型"
         }

@@ -430,6 +430,12 @@
             "matchAllBtn": "一键批量匹配",
             "matchAllHint": "列出全部候选，逐条确认后生效",
             "confirmBtn": "确认",
+            "tabUnmatched": "未匹配",
+            "tabMatched": "已匹配",
+            "rematchBtn": "重新匹配",
+            "deleteBtn": "删除",
+            "searchPlaceholder": "搜索全量价格目录…",
+            "searchEmpty": "无搜索结果",
             "noCandidate": "无匹配候选",
             "ariaLabel": "未匹配模型"
         }

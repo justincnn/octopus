@@ -143,6 +143,30 @@ func MatchCandidates(name string) []MatchCandidate {
 	return candidatesFromMap(name, full)
 }
 
+// SearchModels 在全量 models.dev 目录里按关键词模糊搜索, 返回最多 20 条候选。
+// 精配永远排最前(包含它的 id 必然更长), 其余按名字长度升序。只读不写库。
+func SearchModels(q string) []MatchCandidate {
+	q = strings.ToLower(strings.TrimSpace(q))
+	if q == "" {
+		return nil
+	}
+	llmPriceFullLock.RLock()
+	defer llmPriceFullLock.RUnlock()
+	out := make([]MatchCandidate, 0, 20)
+	for id, p := range llmPriceFull {
+		if strings.Contains(id, q) {
+			out = append(out, MatchCandidate{CanonicalID: id, Price: p, Reason: "search"})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return len(out[i].CanonicalID) < len(out[j].CanonicalID)
+	})
+	if len(out) > 20 {
+		out = out[:20]
+	}
+	return out
+}
+
 func candidatesFromMap(name string, full map[string]model.LLMPrice) []MatchCandidate {
 	// 精配
 	if p, ok := full[name]; ok {

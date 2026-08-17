@@ -221,11 +221,30 @@ export function useSetModelAlias() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['models', 'unmatched'] });
             queryClient.invalidateQueries({ queryKey: ['models', 'list'] });
+            queryClient.invalidateQueries({ queryKey: ['models', 'aliases'] });
         },
     });
 }
 
-/** 删除一条别名映射 */
+/** 全部已匹配别名映射 src → canonical */
+export function useModelAliases() {
+    return useQuery({
+        queryKey: ['models', 'aliases'],
+        queryFn: () => apiRequest<Record<string, string>>('/api/v1/model/alias'),
+    });
+}
+
+/** 全量价格目录关键词搜索(只读, 至少 2 字符才触发) */
+export function useSearchModels(q: string) {
+    return useQuery({
+        queryKey: ['models', 'search', q],
+        queryFn: () =>
+            apiRequest<ModelMatchCandidate[]>(`/api/v1/model/search?q=${encodeURIComponent(q)}`),
+        enabled: q.trim().length >= 2,
+    });
+}
+
+/** 删除一条别名映射(同时清价格, 模型回到未匹配池) */
 export function useDeleteModelAlias() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -234,6 +253,7 @@ export function useDeleteModelAlias() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['models', 'unmatched'] });
             queryClient.invalidateQueries({ queryKey: ['models', 'list'] });
+            queryClient.invalidateQueries({ queryKey: ['models', 'aliases'] });
         },
     });
 }
