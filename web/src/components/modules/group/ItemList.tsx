@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Layers, GripVertical, X, Trash2 } from 'lucide-react';
+import { Layers, GripVertical, X, Trash2, Power } from 'lucide-react';
 import {
     DragDropContext,
     Draggable,
@@ -18,6 +18,8 @@ export interface SelectedMember extends LLMChannel {
     id: string;
     item_id?: number;
     weight?: number;
+    /** 分组 item 的启用状态(区别于渠道层 enabled); 加入≠启用 */
+    item_enabled?: boolean;
 }
 
 function reorderList<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -38,9 +40,11 @@ function MemberItem({
     member,
     onRemove,
     onWeightChange,
+    onToggleEnabled,
     isRemoving,
     index,
     showWeight = false,
+    showToggle = false,
     showConfirmDelete = true,
     layoutScope,
     dnd,
@@ -48,16 +52,18 @@ function MemberItem({
     member: SelectedMember;
     onRemove: (id: string) => void;
     onWeightChange?: (id: string, weight: number) => void;
+    onToggleEnabled?: (id: string) => void;
     isRemoving?: boolean;
     index: number;
     showWeight?: boolean;
+    showToggle?: boolean;
     showConfirmDelete?: boolean;
     layoutScope?: string;
     dnd: MemberItemDnd;
 }) {
     const { Avatar: ModelAvatar } = getModelIcon(member.name);
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const isDisabled = member.enabled === false;
+    const isDisabled = member.item_enabled === false;
 
     return (
         <div
@@ -117,6 +123,22 @@ function MemberItem({
                     </Tooltip>
                     <span className="text-[10px] text-muted-foreground truncate leading-tight">{member.channel_name}</span>
                 </div>
+
+                {showToggle && onToggleEnabled && (
+                    <button
+                        type="button"
+                        title={isDisabled ? '启用' : '禁用'}
+                        onClick={() => onToggleEnabled(member.id)}
+                        className={cn(
+                            'p-1 rounded transition-colors',
+                            isDisabled
+                                ? 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted'
+                                : 'text-primary hover:bg-primary/10'
+                        )}
+                    >
+                        <Power className="size-3.5" />
+                    </button>
+                )}
 
                 {showWeight && (
                     <input
@@ -180,6 +202,7 @@ export interface MemberListProps {
     onReorder: (members: SelectedMember[]) => void;
     onRemove: (id: string) => void;
     onWeightChange?: (id: string, weight: number) => void;
+    onToggleEnabled?: (id: string) => void;
     /**
      * When true, auto-scroll the list to bottom when a *new visible* member appears
      * (i.e. a new member id is added). Useful in "editor" flows. Defaults to true.
@@ -198,6 +221,8 @@ export interface MemberListProps {
     onDragFinish?: () => void;
     removingIds?: Set<string>;
     showWeight?: boolean;
+    /** When true, show the per-row enable/disable toggle (Power icon). */
+    showToggle?: boolean;
     /**
      * When true, show a confirmation overlay before removing an item.
      * When false, clicking the delete button removes the item immediately.
@@ -212,12 +237,14 @@ export function MemberList({
     onReorder,
     onRemove,
     onWeightChange,
+    onToggleEnabled,
     autoScrollOnAdd = true,
     onDragStart,
     onDrop,
     onDragFinish,
     removingIds = new Set(),
     showWeight = false,
+    showToggle = false,
     showConfirmDelete = true,
     layoutScope: externalLayoutScope,
 }: MemberListProps) {
@@ -306,9 +333,11 @@ export function MemberList({
                                 member={members[rubric.source.index]}
                                 onRemove={onRemove}
                                 onWeightChange={onWeightChange}
+                                onToggleEnabled={onToggleEnabled}
                                 isRemoving={false}
                                 index={rubric.source.index}
                                 showWeight={showWeight}
+                                showToggle={showToggle}
                                 showConfirmDelete={showConfirmDelete}
                                 layoutScope={layoutScope}
                                 dnd={{
@@ -338,9 +367,11 @@ export function MemberList({
                                                 member={member}
                                                 onRemove={onRemove}
                                                 onWeightChange={onWeightChange}
+                                                onToggleEnabled={onToggleEnabled}
                                                 isRemoving={removingIds.has(member.id)}
                                                 index={index}
                                                 showWeight={showWeight}
+                                                showToggle={showToggle}
                                                 showConfirmDelete={showConfirmDelete}
                                                 layoutScope={layoutScope}
                                                 dnd={{

@@ -13,6 +13,7 @@ type Group struct {
 	ID                int         `json:"id" gorm:"primaryKey"`
 	Name              string      `json:"name" gorm:"unique;not null"`
 	Mode              GroupMode   `json:"mode" gorm:"not null"`
+	ItemStrategy      string      `json:"item_strategy" gorm:"default:round_robin"` // 已启用模型轮询策略(与渠道key池一致)
 	MatchRegex        string      `json:"match_regex"`
 	FirstTokenTimeOut int         `json:"first_token_time_out"` // 单个渠道首个Token响应超时时间(秒)
 	SessionKeepTime   int         `json:"session_keep_time"`    // 会话保持时间(秒) 0 为禁用
@@ -26,6 +27,7 @@ type GroupItem struct {
 	ModelName string `json:"model_name" gorm:"not null;index:idx_group_channel_model,unique"`
 	Priority  int    `json:"priority"`
 	Weight    int    `json:"weight"`
+	Enabled   bool   `json:"enabled" gorm:"default:true"` // 启用才参与轮询; 加入≠启用
 }
 
 // GroupUpdateRequest 分组更新请求 - 仅包含变更的数据
@@ -33,11 +35,12 @@ type GroupUpdateRequest struct {
 	ID                int                      `json:"id" binding:"required"`
 	Name              *string                  `json:"name,omitempty"`                 // 仅在名称变更时发送
 	Mode              *GroupMode               `json:"mode,omitempty"`                 // 仅在模式变更时发送
+	ItemStrategy      *string                  `json:"item_strategy,omitempty"`        // 仅在轮询策略变更时发送
 	MatchRegex        *string                  `json:"match_regex,omitempty"`          // 仅在匹配正则变更时发送
 	FirstTokenTimeOut *int                     `json:"first_token_time_out,omitempty"` // 仅在超时变更时发送(秒)
 	SessionKeepTime   *int                     `json:"session_keep_time,omitempty"`    // 仅在会话保持时间变更时发送(秒)
 	ItemsToAdd        []GroupItemAddRequest    `json:"items_to_add,omitempty"`         // 新增的 items
-	ItemsToUpdate     []GroupItemUpdateRequest `json:"items_to_update,omitempty"`      // 更新的 items (priority 变更)
+	ItemsToUpdate     []GroupItemUpdateRequest `json:"items_to_update,omitempty"`      // 更新的 items (priority/weight/enabled 变更)
 	ItemsToDelete     []int                    `json:"items_to_delete,omitempty"`      // 删除的 item IDs
 }
 
@@ -51,9 +54,10 @@ type GroupItemAddRequest struct {
 
 // GroupItemUpdateRequest 更新 item 请求
 type GroupItemUpdateRequest struct {
-	ID       int `json:"id" binding:"required"`
-	Priority int `json:"priority,omitempty"`
-	Weight   int `json:"weight,omitempty"`
+	ID       int  `json:"id" binding:"required"`
+	Priority int  `json:"priority,omitempty"`
+	Weight   int  `json:"weight,omitempty"`
+	Enabled  *bool `json:"enabled,omitempty"` // 启用开关; 支持批量(数组一次提交)
 }
 type GroupIDAndLLMName struct {
 	ChannelID int

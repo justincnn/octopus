@@ -13,12 +13,23 @@ import (
 	"github.com/bestruirui/octopus/internal/helper"
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay/balancer"
 	"github.com/bestruirui/octopus/internal/task"
 )
 
 func init() {
 	// 多 key 失效自动恢复: 每 1 小时一轮, 逐个 key 探测, 每个测完随机停 10~30s
 	task.Register("key_validator", time.Hour, false, validateInvalidKeys)
+	// 分组模型失效自动恢复: 每 1 小时一轮, 直接复活(下次失败会重新计数)
+	task.Register("item_validator", time.Hour, false, validateInvalidItems)
+}
+
+// validateInvalidItems 把所有 invalid 的分组 item 重置回 active。
+// 不做探测: 分组 item 失败多为渠道级问题(key 层已探测恢复), item 复活后失败会重新计数。
+func validateInvalidItems() {
+	for _, itemID := range balancer.InvalidItemIDs() {
+		balancer.RecoverItem(itemID)
+	}
 }
 
 // validateInvalidKeys 探测所有 invalid 且非 disabled 的 key, 2xx 则恢复 active。

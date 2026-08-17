@@ -176,6 +176,7 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		channel:    channel,
 		key:        key,
 		keyIdx:     keyIdx,
+		itemID:     item.ID,
 	}, nil
 }
 
@@ -200,6 +201,10 @@ func (ra *relayAttempt) run() (bool, error) {
 		balancer.SetSticky(ra.metrics.APIKeyID, ra.metrics.RequestModel, ra.channel.ID, ra.keyIdx)
 		// 成功复位 key 失败计数
 		markKeySuccess(ra.channel, ra.key)
+		// 分组模型状态机: 成功清失败计数 + 累计使用次数
+		if ra.itemID > 0 {
+			balancer.MarkItemOk(ra.itemID)
+		}
 		return false, nil
 	}
 
@@ -216,6 +221,17 @@ func (ra *relayAttempt) run() (bool, error) {
 		markKeyFail(ra.channel, ra.key, KeyReasonRateLimited)
 	} else {
 		markKeyFail(ra.channel, ra.key, KeyReasonUpstreamError)
+	}
+	// 分组模型状态机: 同类错误连续 3 次 → 踢出轮询池
+	if ra.itemID > 0 {
+		switch {
+		case upstreamStatusCode == http.StatusUnauthorized || upstreamStatusCode == http.StatusForbidden:
+			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonInvalid)
+		case upstreamStatusCode == http.StatusTooManyRequests:
+			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonRateLimited)
+		default:
+			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonUpstreamError)
+		}
 	}
 
 	return ra.c.Writer.Written(), fmt.Errorf("channel %s failed: %v", ra.channel.Name, fwdErr)

@@ -24,7 +24,21 @@ type Iterator struct {
 // NewIterator 创建负载均衡迭代器
 // 自动处理：策略排序 + 粘性通道提前
 func NewIterator(group model.Group, apiKeyID int, requestModel string) *Iterator {
-	b := GetBalancer(group.Mode)
+	strategy := group.ItemStrategy
+	if strategy == "" {
+		// 兼容旧数据: mode 未映射时按原语义
+		switch group.Mode {
+		case model.GroupModeRandom:
+			strategy = StrategyRandom
+		case model.GroupModeFailover:
+			strategy = StrategyPriority
+		case model.GroupModeWeighted:
+			strategy = StrategyLeastUsed
+		default:
+			strategy = StrategyRoundRobin
+		}
+	}
+	b := GetBalancer(strategy)
 	candidates := b.Candidates(group.Items)
 
 	stickyIdx := -1

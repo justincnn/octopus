@@ -110,6 +110,10 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 		selectFields = append(selectFields, "mode")
 		updates.Mode = *req.Mode
 	}
+	if req.ItemStrategy != nil {
+		selectFields = append(selectFields, "item_strategy")
+		updates.ItemStrategy = *req.ItemStrategy
+	}
 	if req.MatchRegex != nil {
 		selectFields = append(selectFields, "match_regex")
 		updates.MatchRegex = *req.MatchRegex
@@ -143,23 +147,36 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 		ids := make([]int, len(req.ItemsToUpdate))
 		priorityCase := "CASE id"
 		weightCase := "CASE id"
+		enabledCase := "CASE id"
+		hasEnabled := false
 		for i, item := range req.ItemsToUpdate {
 			ids[i] = item.ID
 			priorityCase += fmt.Sprintf(" WHEN %d THEN %d", item.ID, item.Priority)
 			weightCase += fmt.Sprintf(" WHEN %d THEN %d", item.ID, item.Weight)
+			if item.Enabled != nil {
+				hasEnabled = true
+				enabledCase += fmt.Sprintf(" WHEN %d THEN %v", item.ID, *item.Enabled)
+			}
 		}
 		priorityCase += " END"
 		weightCase += " END"
+		enabledCase += " END"
 
+		updates := map[string]interface{}{
+			"priority": gorm.Expr(priorityCase),
+			"weight":   gorm.Expr(weightCase),
+		}
+		if hasEnabled {
+			updates["enabled"] = gorm.Expr(enabledCase)
+		}
 		if err := tx.Model(&model.GroupItem{}).
 			Where("id IN ? AND group_id = ?", ids, req.ID).
-			Updates(map[string]interface{}{
-				"priority": gorm.Expr(priorityCase),
-				"weight":   gorm.Expr(weightCase),
-			}).Error; err != nil {
+			Updates(updates).Error; err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("failed to update items: %w", err)
 		}
+		// 启用/禁用切换时重置 item 内存状态由 handler 层调用 balancer.ResetItem
+		// (op 包不依赖 relay/balancer, 避免 import cycle)
 	}
 
 	// 批量新增 items
@@ -172,6 +189,7 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 				ModelName: item.ModelName,
 				Priority:  item.Priority,
 				Weight:    item.Weight,
+				Enabled:   true, // 新加入默认启用(与存量行为一致)
 			}
 		}
 		if err := tx.Create(&newItems).Error; err != nil {

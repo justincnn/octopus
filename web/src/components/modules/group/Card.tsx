@@ -51,6 +51,7 @@ function EditDialogContent({ group, displayMembers, isSubmitting, onSubmit }: Ed
                         name: group.name,
                         match_regex: group.match_regex ?? '',
                         mode: group.mode,
+                        item_strategy: group.item_strategy ?? 'round_robin',
                         first_token_time_out: group.first_token_time_out ?? 0,
                         session_keep_time: group.session_keep_time ?? 0,
                         members: displayMembers,
@@ -79,13 +80,6 @@ export function GroupCard({ group }: { group: Group }) {
     const membersRef = useRef<SelectedMember[]>([]);
 
     const channelNameByKey = useMemo(() => buildChannelNameByModelKey(modelChannels), [modelChannels]);
-    const enabledByKey = useMemo(() => {
-        const map = new Map<string, boolean>();
-        modelChannels.forEach((mc) => {
-            map.set(modelChannelKey(mc.channel_id, mc.name), mc.enabled);
-        });
-        return map;
-    }, [modelChannels]);
 
     const displayMembers = useMemo((): SelectedMember[] =>
         [...(group.items || [])]
@@ -93,13 +87,14 @@ export function GroupCard({ group }: { group: Group }) {
             .map((item) => ({
                 id: modelChannelKey(item.channel_id, item.model_name),
                 name: item.model_name,
-                enabled: enabledByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? true,
+                enabled: true,
+                item_enabled: item.enabled ?? true,
                 channel_id: item.channel_id,
                 channel_name: channelNameByKey.get(modelChannelKey(item.channel_id, item.model_name)) ?? `Channel ${item.channel_id}`,
                 item_id: item.id,
                 weight: item.weight,
             })),
-        [group.items, channelNameByKey, enabledByKey]
+        [group.items, channelNameByKey]
     );
 
     useEffect(() => {
@@ -172,12 +167,12 @@ export function GroupCard({ group }: { group: Group }) {
         if (!group.id) return;
 
         const originalItems = [...(group.items || [])].sort((a, b) => a.priority - b.priority);
-        const originalById = new Map<number, { priority: number; weight: number }>();
+        const originalById = new Map<number, { priority: number; weight: number; enabled: boolean }>();
         const originalIds = new Set<number>();
         originalItems.forEach((it) => {
             if (typeof it.id === 'number') {
                 originalIds.add(it.id);
-                originalById.set(it.id, { priority: it.priority, weight: it.weight });
+                originalById.set(it.id, { priority: it.priority, weight: it.weight, enabled: it.enabled ?? true });
             }
         });
 
@@ -203,11 +198,12 @@ export function GroupCard({ group }: { group: Group }) {
                 const id = m.item_id!;
                 const orig = originalById.get(id);
                 const weight = m.weight ?? 1;
+                const enabled = m.item_enabled ?? true;
                 if (!orig) return null;
-                if (orig.priority === priority && orig.weight === weight) return null;
-                return { id, priority, weight };
+                if (orig.priority === priority && orig.weight === weight && orig.enabled === enabled) return null;
+                return { id, priority, weight, enabled };
             })
-            .filter((x): x is { id: number; priority: number; weight: number } => x !== null);
+            .filter((x): x is { id: number; priority: number; weight: number; enabled: boolean } => x !== null);
 
         const payload: GroupUpdateRequest = { id: group.id };
         const nextName = values.name.trim();
@@ -217,6 +213,7 @@ export function GroupCard({ group }: { group: Group }) {
 
         if (nextName && nextName !== group.name) payload.name = nextName;
         if (values.mode !== group.mode) payload.mode = values.mode;
+        if (values.item_strategy && values.item_strategy !== (group.item_strategy ?? 'round_robin')) payload.item_strategy = values.item_strategy;
         if (nextRegex !== (group.match_regex ?? '')) payload.match_regex = nextRegex;
         if (nextFirstTokenTimeOut !== (group.first_token_time_out ?? 0)) payload.first_token_time_out = nextFirstTokenTimeOut;
         if (nextSessionKeepTime !== (group.session_keep_time ?? 0)) payload.session_keep_time = nextSessionKeepTime;

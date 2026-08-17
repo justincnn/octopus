@@ -17,18 +17,16 @@ type Balancer interface {
 	Candidates(items []model.GroupItem) []model.GroupItem
 }
 
-// GetBalancer 根据模式返回对应的负载均衡器
-func GetBalancer(mode model.GroupMode) Balancer {
-	switch mode {
-	case model.GroupModeRoundRobin:
-		return &RoundRobin{}
-	case model.GroupModeRandom:
+// GetBalancer 根据轮询策略返回对应的负载均衡器(与渠道 key 池策略一致)。
+func GetBalancer(strategy string) Balancer {
+	switch strategy {
+	case StrategyRandom:
 		return &Random{}
-	case model.GroupModeFailover:
+	case StrategyLeastUsed:
+		return &LeastUsed{}
+	case StrategyPriority:
 		return &Failover{}
-	case model.GroupModeWeighted:
-		return &Weighted{}
-	default:
+	default: // round_robin(默认)
 		return &RoundRobin{}
 	}
 }
@@ -37,6 +35,7 @@ func GetBalancer(mode model.GroupMode) Balancer {
 type RoundRobin struct{}
 
 func (b *RoundRobin) Candidates(items []model.GroupItem) []model.GroupItem {
+	items = filterEligible(items)
 	n := len(items)
 	if n == 0 {
 		return nil
@@ -53,6 +52,7 @@ func (b *RoundRobin) Candidates(items []model.GroupItem) []model.GroupItem {
 type Random struct{}
 
 func (b *Random) Candidates(items []model.GroupItem) []model.GroupItem {
+	items = filterEligible(items)
 	n := len(items)
 	if n == 0 {
 		return nil
@@ -65,14 +65,29 @@ func (b *Random) Candidates(items []model.GroupItem) []model.GroupItem {
 	return result
 }
 
-// Failover 故障转移：按优先级排序
+// Failover 故障转移：按优先级排序(priority 策略: 主模型优先, 失败由迭代器换下一个)
 type Failover struct{}
 
 func (b *Failover) Candidates(items []model.GroupItem) []model.GroupItem {
+	items = filterEligible(items)
 	if len(items) == 0 {
 		return nil
 	}
 	return sortByPriority(items)
+}
+
+// LeastUsed 最少使用：按累计使用次数升序(雨露均沾, 防止单模型过热)
+type LeastUsed struct{}
+
+func (b *LeastUsed) Candidates(items []model.GroupItem) []model.GroupItem {
+	items = filterEligible(items)
+	if len(items) == 0 {
+		return nil
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		return itemUseCount(items[i].ID) < itemUseCount(items[j].ID)
+	})
+	return items
 }
 
 // Weighted 加权分配：按权重概率排序

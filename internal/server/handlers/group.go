@@ -6,6 +6,7 @@ import (
 
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay/balancer"
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
@@ -85,6 +86,12 @@ func updateGroup(c *gin.Context) {
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// 启用/禁用切换时重置 item 内存状态(禁用清计数, 启用恢复 active 立即可用)
+	for _, item := range req.ItemsToUpdate {
+		if item.Enabled != nil {
+			balancer.ResetItem(item.ID)
+		}
 	}
 	resp.Success(c, group)
 }

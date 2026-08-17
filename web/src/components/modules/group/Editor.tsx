@@ -12,7 +12,8 @@ import { getModelIcon } from '@/lib/model-icons';
 import type { GroupMode } from '@/api/endpoints/group';
 import type { SelectedMember } from './ItemList';
 import { MemberList } from './ItemList';
-import { matchesGroupName, memberKey, normalizeKey, MODE_LABELS } from './utils';
+import { matchesGroupName, memberKey, normalizeKey } from './utils';
+import { ITEM_STRATEGIES } from '@/api/endpoints/group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { HelpCircle } from 'lucide-react';
 
@@ -22,6 +23,7 @@ export type GroupEditorValues = {
     name: string;
     match_regex: string;
     mode: GroupMode;
+    item_strategy: string;
     first_token_time_out: number;
     session_keep_time: number;
     members: SelectedMember[];
@@ -175,17 +177,25 @@ function SortSection({
     onReorder,
     onRemove,
     onWeightChange,
+    onToggleEnabled,
     removingIds,
     showWeight,
+    showToggle,
     onClear,
+    onEnableAll,
+    onDisableAll,
 }: {
     members: SelectedMember[];
     onReorder: (members: SelectedMember[]) => void;
     onRemove: (id: string) => void;
     onWeightChange: (id: string, weight: number) => void;
+    onToggleEnabled?: (id: string) => void;
     removingIds: Set<string>;
     showWeight: boolean;
+    showToggle?: boolean;
     onClear: () => void;
+    onEnableAll: () => void;
+    onDisableAll: () => void;
 }) {
     const t = useTranslations('group');
 
@@ -199,6 +209,26 @@ function SortSection({
                             ({members.length})
                         </span>
                     )}
+                </span>
+                <span className="flex items-center gap-1 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onEnableAll}
+                        disabled={members.length === 0}
+                        className="px-1.5 py-0.5 rounded text-[11px] text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                        title="全部启用"
+                    >
+                        全部启用
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onDisableAll}
+                        disabled={members.length === 0}
+                        className="px-1.5 py-0.5 rounded text-[11px] text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                        title="全部禁用"
+                    >
+                        全部禁用
+                    </button>
                 </span>
                 <button
                     type="button"
@@ -223,8 +253,10 @@ function SortSection({
                     onReorder={onReorder}
                     onRemove={onRemove}
                     onWeightChange={onWeightChange}
+                    onToggleEnabled={onToggleEnabled}
                     removingIds={removingIds}
                     showWeight={showWeight}
+                    showToggle={showToggle}
                     showConfirmDelete={false}
                 />
             </div>
@@ -253,6 +285,7 @@ export function GroupEditor({
     const [groupName, setGroupName] = useState(initial?.name ?? '');
     const [matchRegex, setMatchRegex] = useState(initial?.match_regex ?? '');
     const [mode, setMode] = useState<GroupMode>((initial?.mode ?? 1) as GroupMode);
+    const [itemStrategy, setItemStrategy] = useState<string>(initial?.item_strategy ?? 'round_robin');
     const [firstTokenTimeOut, setFirstTokenTimeOut] = useState<number>(initial?.first_token_time_out ?? 0);
     const [sessionKeepTime, setSessionKeepTime] = useState<number>(initial?.session_keep_time ?? 0);
     const [selectedMembers, setSelectedMembers] = useState<SelectedMember[]>(initial?.members ?? []);
@@ -314,6 +347,18 @@ export function GroupEditor({
         setSelectedMembers((prev) => prev.map((m) => m.id === id ? { ...m, weight } : m));
     }, []);
 
+    // 单行启用开关: 切换 item_enabled
+    const handleToggleEnabled = useCallback((id: string) => {
+        setSelectedMembers((prev) =>
+            prev.map((m) => m.id === id ? { ...m, item_enabled: m.item_enabled === false } : m)
+        );
+    }, []);
+
+    // 批量启用/禁用全部(一次操作多个)
+    const handleSetAllEnabled = useCallback((enabled: boolean) => {
+        setSelectedMembers((prev) => prev.map((m) => ({ ...m, item_enabled: enabled })));
+    }, []);
+
     const handleRemoveMember = useCallback((id: string) => {
         setRemovingIds((prev) => new Set(prev).add(id));
         setTimeout(() => {
@@ -336,6 +381,7 @@ export function GroupEditor({
             name: groupName,
             match_regex: regexKey,
             mode,
+            item_strategy: itemStrategy,
             first_token_time_out: firstTokenTimeOut,
             session_keep_time: sessionKeepTime,
             members: selectedMembers,
@@ -442,19 +488,19 @@ export function GroupEditor({
                         </Field>
                     </div>
 
-                    {/* Mode */}
+                    {/* 轮询策略(与渠道 key 池一致): 已启用模型如何轮询 */}
                     <div className="flex gap-1">
-                        {([1, 2, 3, 4] as const).map((m) => (
+                        {ITEM_STRATEGIES.map((s) => (
                             <button
-                                key={m}
+                                key={s.value}
                                 type="button"
-                                onClick={() => setMode(m)}
+                                onClick={() => setItemStrategy(s.value)}
                                 className={cn(
                                     'flex-1 py-1 text-xs rounded-lg transition-colors',
-                                    mode === m ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+                                    itemStrategy === s.value ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
                                 )}
                             >
-                                {t(`mode.${MODE_LABELS[m]}`)}
+                                {s.label}
                             </button>
                         ))}
                     </div>
@@ -473,9 +519,13 @@ export function GroupEditor({
                                 onReorder={setSelectedMembers}
                                 onRemove={handleRemoveMember}
                                 onWeightChange={handleWeightChange}
+                                onToggleEnabled={handleToggleEnabled}
                                 removingIds={removingIds}
-                                showWeight={mode === 4}
+                                showWeight={false}
+                                showToggle
                                 onClear={handleClearMembers}
+                                onEnableAll={() => handleSetAllEnabled(true)}
+                                onDisableAll={() => handleSetAllEnabled(false)}
                             />
                         </div>
                     </div>
