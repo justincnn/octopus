@@ -25,6 +25,22 @@ export function StatsChart() {
         return [...statsDaily].sort((a, b) => a.date.localeCompare(b.date));
     }, [statsDaily]);
 
+    // 54 周全量数据的指标最大值(按当前指标类型), 用于 Y 轴固定归一化:
+    // 1/7/30 天切换时刻度一致, 曲线不被偶发峰值压平。
+    const dailyMax = useMemo(() => {
+        if (sortedDaily.length === 0) return 0;
+        let max = 0;
+        for (const s of sortedDaily) {
+            const v = chartMetricType === 'cost'
+                ? s.total_cost.raw
+                : chartMetricType === 'count'
+                    ? (s.request_success.raw + s.request_failed.raw)
+                    : (s.input_token.raw + s.output_token.raw);
+            if (v > max) max = v;
+        }
+        return max;
+    }, [sortedDaily, chartMetricType]);
+
     const getChartDataKey = (type: ChartMetricType) => {
         return type === 'cost' ? 'total_cost' : type === 'count' ? 'request_count' : 'total_token';
     };
@@ -193,6 +209,7 @@ export function StatsChart() {
                     <YAxis
                         tickLine={false}
                         axisLine={false}
+                        domain={[0, dailyMax > 0 ? Math.ceil(dailyMax * 1.1) : 'auto']}
                         tickFormatter={(value) => {
                             if (chartMetricType === 'cost') {
                                 const formatted = formatMoney(value);

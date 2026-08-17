@@ -83,7 +83,13 @@ export function GroupCard({ group }: { group: Group }) {
 
     const displayMembers = useMemo((): SelectedMember[] =>
         [...(group.items || [])]
-            .sort((a, b) => a.priority - b.priority)
+            // 展示排序: 启用的排前列(组内按 priority), 禁用的排后列——纯展示, 不改 priority
+            .sort((a, b) => {
+                const aOn = (a.enabled ?? true) ? 1 : 0;
+                const bOn = (b.enabled ?? true) ? 1 : 0;
+                if (aOn !== bOn) return bOn - aOn;
+                return a.priority - b.priority;
+            })
             .map((item) => ({
                 id: modelChannelKey(item.channel_id, item.model_name),
                 name: item.model_name,
