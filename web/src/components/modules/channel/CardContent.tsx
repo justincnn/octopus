@@ -327,6 +327,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                 onCancel={() => setIsEditing(false)}
                                 cancelText={t('actions.cancel')}
                                 idPrefix="channel"
+                                channelId={channel.id}
                             />
                         </TabsContent>
                     </TabsContents>

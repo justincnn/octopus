@@ -293,6 +293,21 @@ export function useLastSyncTime() {
         refetchInterval: 30000,
     });
 }
+
+/**
+ * 获取渠道完整 key(管理端眼睛切换显示用; 列表默认打码)
+ */
+export function useChannelKey(id: number) {
+    return useQuery({
+        queryKey: ['channels', 'key', id],
+        queryFn: async () => {
+            const res = await apiRequest<{ key: string }>(`/api/v1/channel/key/${id}`);
+            return res.key;
+        },
+        enabled: false, // 不自动请求, 点眼睛才触发
+        staleTime: Infinity,
+    });
+}
 /**
  * 同步渠道 Hook
  * 

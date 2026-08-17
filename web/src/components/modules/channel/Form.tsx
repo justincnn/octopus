@@ -1,4 +1,4 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel } from '@/api/endpoints/channel';
+import { AutoGroupType, ChannelType, type Channel, useFetchModel, useChannelKey } from '@/api/endpoints/channel';
 import {
     Select,
     SelectContent,
@@ -45,6 +45,8 @@ export interface ChannelFormProps {
     onCancel?: () => void;
     cancelText?: string;
     idPrefix?: string;
+    /** 编辑模式: 渠道 id, 用于眼睛切换时拉取完整 key(新建/复制时为空) */
+    channelId?: number;
 }
 
 import {
@@ -64,6 +66,7 @@ export function ChannelForm({
     onCancel,
     cancelText,
     idPrefix = 'channel',
+    channelId,
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
 
@@ -83,6 +86,27 @@ export function ChannelForm({
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
     const [showKey, setShowKey] = useState(false);
+    const keyBeforeRevealRef = useRef('');
+    const channelKeyQuery = useChannelKey(channelId ?? 0);
+
+    // 眼睛切换: 打开时若 key 是打码值且可拉取明文, 用完整 key 替换显示; 关闭恢复打码(防误提交覆盖)
+    const toggleKeyVisibility = () => {
+        if (!showKey && channelId && formData.key.includes('****')) {
+            keyBeforeRevealRef.current = formData.key;
+            void channelKeyQuery.refetch().then((res) => {
+                if (res.data) {
+                    onFormDataChange({ ...formData, key: res.data });
+                    setShowKey(true);
+                }
+            });
+            return;
+        }
+        if (showKey && keyBeforeRevealRef.current) {
+            onFormDataChange({ ...formData, key: keyBeforeRevealRef.current });
+            keyBeforeRevealRef.current = '';
+        }
+        setShowKey((v) => !v);
+    };
 
     const fetchModel = useFetchModel();
 
@@ -264,7 +288,7 @@ export function ChannelForm({
                     />
                     <button
                         type="button"
-                        onClick={() => setShowKey((v) => !v)}
+                        onClick={toggleKeyVisibility}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         tabIndex={-1}
                         aria-label={showKey ? t('hideKey') : t('showKey')}

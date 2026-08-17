@@ -54,6 +54,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/last-sync-time", http.MethodGet).
 				Handle(getLastSyncTime),
+		).
+		AddRoute(
+			router.NewRoute("/key/:id", http.MethodGet).
+				Handle(getChannelKey),
 		)
 }
 
@@ -78,6 +82,21 @@ func maskKey(key string) string {
 		return "****"
 	}
 	return key[:3] + "****" + key[len(key)-4:]
+}
+
+// getChannelKey 返回渠道完整 key(仅供管理端眼睛切换显示用)。
+func getChannelKey(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	channel, err := op.ChannelGet(id, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusNotFound, "channel not found")
+		return
+	}
+	resp.Success(c, gin.H{"key": channel.Key})
 }
 
 func createChannel(c *gin.Context) {
