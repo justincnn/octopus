@@ -21,6 +21,7 @@ import { type StatsMetricsFormatted } from '@/api/endpoints/stats';
 import { useTranslations } from 'use-intl';
 import { Button } from '@/components/ui/button';
 import { ChannelForm, splitPool, type ChannelFormData } from './Form';
+import { KeysManagerDialog } from './KeysManager';
 
 export function CardContent({ channel, stats }: { channel: Channel; stats: StatsMetricsFormatted }) {
     const { setIsOpen } = useMorphingDialog();
@@ -46,8 +47,10 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         auto_sync: channel.auto_sync,
         auto_group: channel.auto_group,
         match_regex: channel.match_regex ?? '',
+        keys: channel.keys ?? [],
     });
     const t = useTranslations('channel.detail');
+    const [showKeysManager, setShowKeysManager] = useState(false);
 
     const currentView = isEditing ? 'editing' : 'viewing';
 
@@ -105,6 +108,11 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         if (nextMatchRegex !== curMatchRegex) {
             // Empty string means "clear" for patch semantics; backend maps it to NULL.
             req.match_regex = nextMatchRegex;
+        }
+
+        // 多 key 池变化才提交
+        if (JSON.stringify(formData.keys ?? []) !== JSON.stringify(channel.keys ?? [])) {
+            req.keys = formData.keys ?? [];
         }
 
         updateChannel.mutate(req, {
@@ -328,11 +336,23 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                 cancelText={t('actions.cancel')}
                                 idPrefix="channel"
                                 channelId={channel.id}
+                                onOpenKeysManager={() => setShowKeysManager(true)}
                             />
                         </TabsContent>
                     </TabsContents>
                 </Tabs>
             </MorphingDialogDescription>
+            {showKeysManager && (
+                <KeysManagerDialog
+                    channelId={channel.id}
+                    initialKeys={formData.keys ?? []}
+                    onSave={(keys) => {
+                        setFormData((prev) => ({ ...prev, keys }));
+                        setShowKeysManager(false);
+                    }}
+                    onClose={() => setShowKeysManager(false)}
+                />
+            )}
         </>
     );
 }

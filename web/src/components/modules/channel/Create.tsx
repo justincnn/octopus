@@ -30,6 +30,7 @@ export function CreateDialogContent() {
         proxy: false,
         max_concurrency: 0,
         match_regex: '',
+        keys: [],
     });
     const t = useTranslations('channel.create');
 
@@ -58,6 +59,7 @@ export function CreateDialogContent() {
                 channel_proxy: channelProxy,
                 proxy_pool: splitPool(formData.proxy_pool),
                 sticky: formData.sticky,
+                keys: formData.keys ?? [],
                 param_override: paramOverride,
                 match_regex: formData.match_regex.trim(),
             },
@@ -81,6 +83,7 @@ export function CreateDialogContent() {
                         proxy: false,
                         max_concurrency: 0,
                         match_regex: '',
+                        keys: [],
                     });
                     setIsOpen(false);
                 }

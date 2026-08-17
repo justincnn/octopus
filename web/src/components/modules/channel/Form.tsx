@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, Check, Search, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, X, Plus, Check, Search, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 export interface ChannelFormData {
     name: string;
@@ -33,6 +33,7 @@ export interface ChannelFormData {
     auto_sync: boolean;
     auto_group: AutoGroupType;
     match_regex: string;
+    keys?: string[];
 }
 
 export interface ChannelFormProps {
@@ -47,6 +48,8 @@ export interface ChannelFormProps {
     idPrefix?: string;
     /** 编辑模式: 渠道 id, 用于眼睛切换时拉取完整 key(新建/复制时为空) */
     channelId?: number;
+    /** 打开 Keys 管理弹窗(多 key 轮询) */
+    onOpenKeysManager?: () => void;
 }
 
 import {
@@ -67,6 +70,7 @@ export function ChannelForm({
     cancelText,
     idPrefix = 'channel',
     channelId,
+    onOpenKeysManager,
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
 
@@ -296,6 +300,20 @@ export function ChannelForm({
                         {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-card-foreground">Keys（多 key 轮询）</label>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenKeysManager}
+                    className="w-full rounded-xl"
+                >
+                    <KeyRound className="h-3.5 w-3.5 mr-1.5" />
+                    管理 Keys ({formData.keys?.length ?? 0})
+                </Button>
             </div>
 
             <div className="space-y-2">

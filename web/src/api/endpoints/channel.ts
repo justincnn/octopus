@@ -49,6 +49,7 @@ export type Channel = {
     channel_proxy?: string | null;
     proxy_pool?: string[] | null;
     sticky?: boolean;
+    keys?: string[];
     match_regex?: string | null;
     stats: StatsChannel;
 };
@@ -77,6 +78,7 @@ export type CreateChannelRequest = {
     channel_proxy?: string | null;
     proxy_pool?: string[] | null;
     sticky?: boolean;
+    keys?: string[];
     param_override?: string | null;
     match_regex?: string | null;
 };
@@ -101,6 +103,7 @@ export type UpdateChannelRequest = {
     channel_proxy?: string | null;
     proxy_pool?: string[] | null;
     sticky?: boolean;
+    keys?: string[];
     param_override?: string | null;
     match_regex?: string | null;
 };
@@ -306,6 +309,44 @@ export function useChannelKey(id: number) {
         },
         enabled: false, // 不自动请求, 点眼睛才触发
         staleTime: Infinity,
+    });
+}
+
+/** 渠道 key 池状态条目 */
+export type ChannelKeyStatus = {
+    key: string;
+    status: string;   // active / invalid
+    reason: string;   // invalid / rate_limited / upstream_error / disabled
+    disabled: boolean;
+    fail_count: number;
+    last_fail_at: number; // unix 秒
+};
+
+/**
+ * 获取渠道 key 池状态列表(多 key 管理弹窗用)
+ */
+export function useChannelKeysStatus(channelId: number, enabled: boolean) {
+    return useQuery({
+        queryKey: ['channels', 'keys-status', channelId],
+        queryFn: () => apiRequest<ChannelKeyStatus[]>(`/api/v1/channel/keys/status?channel_id=${channelId}`),
+        enabled,
+        refetchInterval: 10000, // 10s 刷新, 状态实时可见
+    });
+}
+
+/** 手动禁用/启用 key */
+export function useDisableChannelKey() {
+    return useMutation({
+        mutationFn: (data: { channel_id: number; key: string; disabled: boolean }) =>
+            apiRequest<null>('/api/v1/channel/keys/disable', { method: 'POST', body: data }),
+    });
+}
+
+/** 手动恢复 key */
+export function useRecoverChannelKey() {
+    return useMutation({
+        mutationFn: (data: { channel_id: number; key: string }) =>
+            apiRequest<null>('/api/v1/channel/keys/recover', { method: 'POST', body: data }),
     });
 }
 /**
