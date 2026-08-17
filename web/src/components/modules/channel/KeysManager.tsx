@@ -51,7 +51,15 @@ export function KeysManagerDialog({
     const disableKey = useDisableChannelKey();
     const recoverKey = useRecoverChannelKey();
 
-    const draftKeys = useMemo(() => draft.split('\n').map((s) => s.trim()).filter(Boolean), [draft]);
+    // 支持换行/空格/逗号分隔批量粘贴(用户可能整段粘贴)
+    const draftKeys = useMemo(
+        () =>
+            draft
+                .split(/[\n\s,]+/)
+                .map((s) => s.trim())
+                .filter(Boolean),
+        [draft]
+    );
 
     const handleSave = () => {
         setSaving(true);
