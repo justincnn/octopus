@@ -65,6 +65,10 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 		selectFields = append(selectFields, "keys")
 		updates.Keys = *req.Keys
 	}
+	if req.KeyStrategy != nil {
+		selectFields = append(selectFields, "key_strategy")
+		updates.KeyStrategy = *req.KeyStrategy
+	}
 	if req.Model != nil {
 		selectFields = append(selectFields, "model")
 		updates.Model = *req.Model

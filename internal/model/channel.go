@@ -30,6 +30,7 @@ type Channel struct {
 	BaseURL       string          `json:"base_url"`                                // BaseURL 是唯一的上游基础地址。
 	Key           string          `json:"key"`                                     // Key 是唯一的上游访问凭据(单 key 渠道用)。
 	Keys          []string        `json:"keys" gorm:"serializer:json"`             // Keys 是多 key 轮询池(为空时回退到 Key)。
+	KeyStrategy   string          `json:"key_strategy" gorm:"default:priority"`    // KeyStrategy 是 key 轮询策略: round_robin/random/least_used/priority。
 	Model         string          `json:"model"`                                   // Model 是自动同步的模型列表。
 	CustomModel   string          `json:"custom_model"`                            // CustomModel 是手动配置的模型列表。
 	Proxy         bool            `json:"proxy" gorm:"default:false"`             // Proxy 表示是否使用代理。
@@ -60,6 +61,7 @@ type ChannelUpdateRequest struct {
 	BaseURL       *string          `json:"base_url,omitempty"`      // BaseURL 是新的上游基础地址。
 	Key           *string          `json:"key,omitempty"`           // Key 是新的上游访问凭据。
 	Keys          *[]string        `json:"keys,omitempty"`          // Keys 是多 key 轮询池(传空数组=清空回退单 key)。
+	KeyStrategy   *string          `json:"key_strategy,omitempty"`  // KeyStrategy 是新的轮询策略(round_robin/random/least_used/priority)。
 	Model         *string          `json:"model,omitempty"`         // Model 是新的自动同步模型列表。
 	CustomModel   *string          `json:"custom_model,omitempty"`  // CustomModel 是新的自定义模型列表。
 	Proxy         *bool            `json:"proxy,omitempty"`         // Proxy 是新的代理开关。

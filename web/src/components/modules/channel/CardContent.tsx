@@ -48,6 +48,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         auto_group: channel.auto_group,
         match_regex: channel.match_regex ?? '',
         keys: channel.keys ?? [],
+        key_strategy: channel.key_strategy ?? 'priority',
     });
     const t = useTranslations('channel.detail');
     const [showKeysManager, setShowKeysManager] = useState(false);
@@ -113,6 +114,11 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         // 多 key 池变化才提交
         if (JSON.stringify(formData.keys ?? []) !== JSON.stringify(channel.keys ?? [])) {
             req.keys = formData.keys ?? [];
+        }
+
+        // 轮询策略变化才提交
+        if ((formData.key_strategy ?? 'priority') !== (channel.key_strategy ?? 'priority')) {
+            req.key_strategy = formData.key_strategy ?? 'priority';
         }
 
         updateChannel.mutate(req, {
@@ -346,10 +352,12 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                 <KeysManagerDialog
                     channelId={channel.id}
                     initialKeys={formData.keys ?? []}
+                    strategy={channel.key_strategy ?? 'priority'}
                     onSave={(keys) => {
                         setFormData((prev) => ({ ...prev, keys }));
                         setShowKeysManager(false);
                     }}
+                    onStrategyChange={(s) => setFormData((prev) => ({ ...prev, key_strategy: s }))}
                     onClose={() => setShowKeysManager(false)}
                 />
             )}

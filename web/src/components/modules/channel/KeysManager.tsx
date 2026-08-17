@@ -9,6 +9,15 @@ import {
     useDisableChannelKey,
     useRecoverChannelKey,
 } from '@/api/endpoints/channel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// 轮询策略选项
+const STRATEGIES: { value: string; label: string; desc: string }[] = [
+    { value: 'priority', label: '主 key 优先', desc: '当前 key 正常就一直用它，失效后随机换另一个' },
+    { value: 'round_robin', label: '顺序轮询', desc: '按顺序轮流使用每个 key' },
+    { value: 'random', label: '随机', desc: '每次从可用 key 中随机选' },
+    { value: 'least_used', label: '最少使用', desc: '优先用累计使用次数最少的 key' },
+];
 
 // 原因 → 中文文案 + 颜色
 const REASON_META: Record<string, { label: string; color: string }> = {
@@ -36,12 +45,16 @@ function fmtTime(unixSec: number) {
 export function KeysManagerDialog({
     channelId,
     initialKeys,
+    strategy,
     onSave,
+    onStrategyChange,
     onClose,
 }: {
     channelId: number;
     initialKeys: string[];
+    strategy: string;
     onSave: (keys: string[]) => void;
+    onStrategyChange: (strategy: string) => void;
     onClose: () => void;
 }) {
     const [editing, setEditing] = useState(false);
@@ -111,6 +124,24 @@ export function KeysManagerDialog({
                 <p className="mb-4 text-xs text-muted-foreground">
                     {initialKeys.length} 个 key · 轮询使用 · 无效 key 自动跳过，每小时自动探测恢复
                 </p>
+
+                {/* 轮询策略选择 */}
+                <div className="mb-4 space-y-1.5">
+                    <label className="text-xs font-medium text-card-foreground">轮询策略</label>
+                    <Select value={strategy || 'priority'} onValueChange={onStrategyChange}>
+                        <SelectTrigger className="w-full rounded-xl">
+                            <SelectValue placeholder="选择轮询策略" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {STRATEGIES.map((s) => (
+                                <SelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                    <span className="ml-2 text-xs text-muted-foreground">{s.desc}</span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
 
                 {/* 编辑模式: 多行输入 */}
                 {editing ? (

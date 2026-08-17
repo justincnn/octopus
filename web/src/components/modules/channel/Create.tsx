@@ -31,6 +31,7 @@ export function CreateDialogContent() {
         max_concurrency: 0,
         match_regex: '',
         keys: [],
+        key_strategy: 'priority',
     });
     const t = useTranslations('channel.create');
 
@@ -60,6 +61,7 @@ export function CreateDialogContent() {
                 proxy_pool: splitPool(formData.proxy_pool),
                 sticky: formData.sticky,
                 keys: formData.keys ?? [],
+                key_strategy: formData.key_strategy ?? 'priority',
                 param_override: paramOverride,
                 match_regex: formData.match_regex.trim(),
             },
@@ -84,6 +86,7 @@ export function CreateDialogContent() {
                         max_concurrency: 0,
                         match_regex: '',
                         keys: [],
+                        key_strategy: 'priority',
                     });
                     setIsOpen(false);
                 }

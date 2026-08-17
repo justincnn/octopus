@@ -50,6 +50,7 @@ export type Channel = {
     proxy_pool?: string[] | null;
     sticky?: boolean;
     keys?: string[];
+    key_strategy?: string;
     match_regex?: string | null;
     stats: StatsChannel;
 };
@@ -79,6 +80,7 @@ export type CreateChannelRequest = {
     proxy_pool?: string[] | null;
     sticky?: boolean;
     keys?: string[];
+    key_strategy?: string;
     param_override?: string | null;
     match_regex?: string | null;
 };
@@ -104,6 +106,7 @@ export type UpdateChannelRequest = {
     proxy_pool?: string[] | null;
     sticky?: boolean;
     keys?: string[];
+    key_strategy?: string;
     param_override?: string | null;
     match_regex?: string | null;
 };

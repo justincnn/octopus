@@ -34,6 +34,7 @@ export interface ChannelFormData {
     auto_group: AutoGroupType;
     match_regex: string;
     keys?: string[];
+    key_strategy?: string;
 }
 
 export interface ChannelFormProps {
