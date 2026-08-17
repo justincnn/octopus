@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/looplj/axonhub/llm"
 	"github.com/looplj/axonhub/llm/httpclient"
@@ -47,6 +48,8 @@ func (m *mistralConversationOutbound) APIFormat() llm.APIFormat {
 
 // TransformRequest 把统一请求转成 Mistral conversations 格式:
 // {"model":..., "inputs":[{"role":..., "content":...}], "stream":...}
+// ⚠️ 官方 inputs[] 只接受 user/assistant 角色: system 消息合并进第一条 user 消息
+// (Mistral conversations 无 system_prompt 字段, 只能这样带 system 指令)。
 func (m *mistralConversationOutbound) TransformRequest(ctx context.Context, llmReq *llm.Request) (*httpclient.Request, error) {
 	if llmReq == nil {
 		return nil, fmt.Errorf("llm request is nil")
@@ -55,12 +58,29 @@ func (m *mistralConversationOutbound) TransformRequest(ctx context.Context, llmR
 		return nil, fmt.Errorf("model is required")
 	}
 
+	systemParts := make([]string, 0, 1)
 	inputs := make([]map[string]any, 0, len(llmReq.Messages))
 	for _, msg := range llmReq.Messages {
+		if msg.Role == "system" {
+			systemParts = append(systemParts, contentStr(msg.Content))
+			continue
+		}
 		content := msg.Content
+		// system 合并到第一条 user 消息前
+		if len(systemParts) > 0 && msg.Role == "user" {
+			content = llm.MessageContent{Content: stringPtr(strings.Join(append(systemParts, contentStr(content)), "\n\n"))}
+			systemParts = nil
+		}
 		inputs = append(inputs, map[string]any{
 			"role":    msg.Role,
 			"content": content,
+		})
+	}
+	// 只有 system 没有 user 时: 作为唯一 user 消息发送
+	if len(systemParts) > 0 && len(inputs) == 0 {
+		inputs = append(inputs, map[string]any{
+			"role":    "user",
+			"content": strings.Join(systemParts, "\n\n"),
 		})
 	}
 
@@ -168,6 +188,21 @@ func (m *mistralConversationOutbound) TransformStream(ctx context.Context, req *
 // TransformError 复用 OpenAI 错误转换。
 func (m *mistralConversationOutbound) TransformError(ctx context.Context, err *httpclient.Error) *llm.ResponseError {
 	return m.openaiOutbound.TransformError(ctx, err)
+}
+
+// contentStr 取 MessageContent 的纯文本(优先 Content, 多段内容取第一段)。
+func contentStr(c llm.MessageContent) string {
+	if c.Content != nil {
+		return *c.Content
+	}
+	if len(c.MultipleContent) > 0 && c.MultipleContent[0].Text != nil {
+		return *c.MultipleContent[0].Text
+	}
+	return ""
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
 
 // AggregateStreamChunks 复用 OpenAI 聚合(下游是 OpenAI 格式)。
