@@ -402,7 +402,9 @@
             "updated": "模型价格已更新",
             "updateFailed": "更新失败",
             "deleted": "模型已删除",
-            "deleteFailed": "删除失败"
+            "deleteFailed": "删除失败",
+            "matchFailed": "匹配失败",
+            "aliasSetFailed": "设置映射失败"
         },
         "card": {
             "inputCache": "输入/缓存",
@@ -419,6 +421,14 @@
             "cacheRead": "缓存读取",
             "cacheWrite": "缓存写入",
             "save": "保存"
+        },
+        "unmatched": {
+            "title": "未匹配模型",
+            "subtitle": "渠道里还没有价格的模型",
+            "empty": "全部模型都已匹配价格 🎉",
+            "matchBtn": "匹配",
+            "noCandidate": "无匹配候选",
+            "ariaLabel": "未匹配模型"
         }
     },
     "log": {

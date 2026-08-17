@@ -402,7 +402,9 @@
             "updated": "Model price updated",
             "updateFailed": "Update failed",
             "deleted": "Model deleted",
-            "deleteFailed": "Delete failed"
+            "deleteFailed": "Delete failed",
+            "matchFailed": "Match failed",
+            "aliasSetFailed": "Failed to set alias"
         },
         "card": {
             "inputCache": "Input/Cache",
@@ -419,6 +421,14 @@
             "cacheRead": "Cache Read",
             "cacheWrite": "Cache Write",
             "save": "Save"
+        },
+        "unmatched": {
+            "title": "Unmatched models",
+            "subtitle": "Channel models without a price",
+            "empty": "All models matched 🎉",
+            "matchBtn": "Match",
+            "noCandidate": "No candidates",
+            "ariaLabel": "Unmatched models"
         }
     },
     "log": {

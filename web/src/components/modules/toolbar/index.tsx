@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpAZ, Clock3, LayoutGrid, List, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUpAZ, Clock3, LayoutGrid, List, Plus, Search, SlidersHorizontal, Tags, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     MorphingDialog,
@@ -14,6 +14,8 @@ import { useNavStore, type NavItem } from '@/components/modules/navbar';
 import { CreateDialogContent as ChannelCreateContent } from '@/components/modules/channel/Create';
 import { CreateDialogContent as GroupCreateContent } from '@/components/modules/group/Create';
 import { CreateDialogContent as ModelCreateContent } from '@/components/modules/model/Create';
+import { UnmatchedModelsDialog } from '@/components/modules/model/UnmatchedModelsDialog';
+import { useUnmatchedModels } from '@/api/endpoints/model';
 import { useTranslations } from 'use-intl';
 import { useSearchStore } from './search-store';
 import {
@@ -80,6 +82,8 @@ export function Toolbar() {
     const setModelFilter = useToolbarViewOptionsStore((s) => s.setModelFilter);
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const searchExpanded = expandedSearchItem === toolbarItem;
+    const { data: unmatchedModels } = useUnmatchedModels(toolbarItem === 'model');
+    const unmatchedCount = unmatchedModels?.length ?? 0;
 
     if (!toolbarItem) return null;
     const showLayoutOptions = toolbarItem !== 'group';
@@ -182,6 +186,26 @@ export function Toolbar() {
                         </motion.div>
                     )}
                 </div>
+
+                {/* 未匹配模型按钮(仅模型页); 打开时组件内部自动刷新计数 */}
+                {toolbarItem === 'model' && (
+                    <MorphingDialog>
+                        <MorphingDialogTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon", className: "relative rounded-xl transition-none hover:bg-transparent text-muted-foreground hover:text-foreground" }))}>
+                            <Tags className="size-4 transition-colors duration-300" />
+                            {unmatchedCount > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground flex items-center justify-center">
+                                    {unmatchedCount > 99 ? '99+' : unmatchedCount}
+                                </span>
+                            )}
+                        </MorphingDialogTrigger>
+
+                        <MorphingDialogContainer>
+                            <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-6 py-4 rounded-3xl custom-shadow max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+                                <UnmatchedModelsDialog />
+                            </MorphingDialogContent>
+                        </MorphingDialogContainer>
+                    </MorphingDialog>
+                )}
 
                 <Popover>
                     <PopoverTrigger asChild>

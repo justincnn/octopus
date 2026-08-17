@@ -45,6 +45,22 @@ func init() {
 		AddRoute(
 			router.NewRoute("/last-update-time", http.MethodGet).
 				Handle(getLastUpdateTime),
+		).
+		AddRoute(
+			router.NewRoute("/unmatched", http.MethodGet).
+				Handle(listUnmatchedModels),
+		).
+		AddRoute(
+			router.NewRoute("/match", http.MethodPost).
+				Handle(matchModel),
+		).
+		AddRoute(
+			router.NewRoute("/alias", http.MethodPost).
+				Handle(setModelAlias),
+		).
+		AddRoute(
+			router.NewRoute("/alias", http.MethodDelete).
+				Handle(deleteModelAlias),
 		)
 	router.NewGroupRouter("/v1").
 		Use(middleware.APIKeyAuth()).
@@ -177,4 +193,56 @@ func updateLLMPrice(c *gin.Context) {
 func getLastUpdateTime(c *gin.Context) {
 	time := price.GetLastUpdateTime()
 	resp.Success(c, time)
+}
+
+// listUnmatchedModels 返回所有渠道里未匹配价格的模型名(成本全 0 且未设别名)。
+func listUnmatchedModels(c *gin.Context) {
+	models, err := price.UnmatchedModels(c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, models)
+}
+
+func matchModel(c *gin.Context) {
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	resp.Success(c, price.MatchCandidates(req.Name))
+}
+
+func setModelAlias(c *gin.Context) {
+	var req struct {
+		Src       string `json:"src" binding:"required"`       // 渠道模型名
+		Canonical string `json:"canonical" binding:"required"` // models.dev 规范名
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := price.SetAlias(req.Src, req.Canonical, c.Request.Context()); err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, nil)
+}
+
+func deleteModelAlias(c *gin.Context) {
+	var req struct {
+		Src string `json:"src" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := op.AliasDelete(req.Src, c.Request.Context()); err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, nil)
 }

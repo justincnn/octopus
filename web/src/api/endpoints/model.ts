@@ -167,3 +167,58 @@ export function useLastUpdateTime() {
         refetchInterval: 30000,
     });
 }
+
+// ---- 未匹配模型模糊匹配 ----
+
+export interface ModelMatchCandidate {
+    canonical_id: string;
+    reason: string;
+    input: number;
+    output: number;
+    cache_read: number;
+    cache_write: number;
+}
+
+/** 获取所有渠道里未匹配价格的模型名 */
+export function useUnmatchedModels(enabled = true) {
+    return useQuery({
+        queryKey: ['models', 'unmatched'],
+        queryFn: () => apiRequest<string[]>('/api/v1/model/unmatched'),
+        refetchInterval: 30000,
+        enabled,
+    });
+}
+
+/** 对某个模型名做模糊匹配, 返回候选 */
+export function useMatchModel() {
+    return useMutation({
+        mutationFn: (name: string) =>
+            apiRequest<ModelMatchCandidate[]>('/api/v1/model/match', { method: 'POST', body: { name } }),
+    });
+}
+
+/** 确认一条别名映射(渠道模型名 → models.dev 规范名), 立即写价格 */
+export function useSetModelAlias() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { src: string; canonical: string }) =>
+            apiRequest<null>('/api/v1/model/alias', { method: 'POST', body: data }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['models', 'unmatched'] });
+            queryClient.invalidateQueries({ queryKey: ['models', 'list'] });
+        },
+    });
+}
+
+/** 删除一条别名映射 */
+export function useDeleteModelAlias() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (src: string) =>
+            apiRequest<null>('/api/v1/model/alias', { method: 'DELETE', body: { src } }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['models', 'unmatched'] });
+            queryClient.invalidateQueries({ queryKey: ['models', 'list'] });
+        },
+    });
+}

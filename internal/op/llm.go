@@ -142,3 +142,47 @@ func llmRefreshCache(ctx context.Context) error {
 	}
 	return nil
 }
+
+// ---- ModelAlias 数据层(纯 DB, 无 price 依赖, 避免 import cycle) ----
+
+var llmAliasCache = cache.New[string, string](16)
+
+func AliasListAll(ctx context.Context) (map[string]string, error) {
+	aliases := make(map[string]string, llmAliasCache.Len())
+	for src, canon := range llmAliasCache.GetAll() {
+		aliases[src] = canon
+	}
+	return aliases, nil
+}
+
+// AliasSave 幂等保存一条 src→canonical 映射(主键冲突即更新)。
+func AliasSave(src, canonical string, ctx context.Context) error {
+	alias := model.ModelAlias{SrcName: strings.ToLower(strings.TrimSpace(src)), CanonicalID: strings.ToLower(strings.TrimSpace(canonical))}
+	if alias.SrcName == "" || alias.CanonicalID == "" {
+		return fmt.Errorf("src and canonical must not be empty")
+	}
+	if err := db.GetDB().WithContext(ctx).Save(&alias).Error; err != nil {
+		return err
+	}
+	llmAliasCache.Set(alias.SrcName, alias.CanonicalID)
+	return nil
+}
+
+func AliasDelete(src string, ctx context.Context) error {
+	if err := db.GetDB().WithContext(ctx).Delete(&model.ModelAlias{}, strings.ToLower(strings.TrimSpace(src))).Error; err != nil {
+		return err
+	}
+	llmAliasCache.Del(strings.ToLower(strings.TrimSpace(src)))
+	return nil
+}
+
+func aliasRefreshCache(ctx context.Context) error {
+	aliases := []model.ModelAlias{}
+	if err := db.GetDB().WithContext(ctx).Find(&aliases).Error; err != nil {
+		return err
+	}
+	for _, a := range aliases {
+		llmAliasCache.Set(a.SrcName, a.CanonicalID)
+	}
+	return nil
+}

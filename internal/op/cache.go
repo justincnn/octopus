@@ -24,6 +24,9 @@ func InitCache() error {
 	if err := llmRefreshCache(ctx); err != nil {
 		return fmt.Errorf("llm refresh cache error: %v", err)
 	}
+	if err := aliasRefreshCache(ctx); err != nil {
+		return fmt.Errorf("alias refresh cache error: %v", err)
+	}
 	if err := statsRefreshCache(ctx); err != nil {
 		return fmt.Errorf("stats refresh cache error: %v", err)
 	}

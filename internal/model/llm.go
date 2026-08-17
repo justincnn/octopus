@@ -12,6 +12,15 @@ type LLMInfo struct {
 	LLMPrice
 }
 
+// ModelAlias 记录渠道模型名 → models.dev 规范模型名的价格映射。
+// 用户在「未匹配模型」弹窗里对某个渠道模型名做了模糊匹配后, 持久化这条映射,
+// 以后每次拉取 models.dev 价格都会用 canonical_id 的成本自动刷新 src_name 的价格,
+// 实现"匹配后自动同步"。
+type ModelAlias struct {
+	SrcName     string `json:"src_name" gorm:"primaryKey;not null"` // 渠道里的模型名(小写)
+	CanonicalID string `json:"canonical_id" gorm:"not null;index"`  // models.dev 目录里的规范模型名(小写)
+}
+
 type LLMChannel struct {
 	Name        string `json:"name"`
 	Enabled     bool   `json:"enabled"`
