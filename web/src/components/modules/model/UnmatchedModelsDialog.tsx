@@ -11,7 +11,7 @@ import {
     useSearchModels,
     type ModelMatchCandidate,
 } from '@/api/endpoints/model';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

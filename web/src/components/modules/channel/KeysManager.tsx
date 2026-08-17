@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { KeyRound, Plus, Trash2, RotateCcw, Ban, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import {
     type ChannelKeyStatus,
     useChannelKeysStatus,

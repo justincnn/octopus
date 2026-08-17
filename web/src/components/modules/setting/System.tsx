@@ -4,7 +4,7 @@ import { Monitor, Globe, Clock, Shield, HelpCircle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSettingList, useSetSetting, SettingKey } from '@/api/endpoints/setting';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 
 export function SettingSystem() {

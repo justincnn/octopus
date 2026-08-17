@@ -16,7 +16,8 @@ func GenerateJWTToken(expiresSec int) (string, int, error) {
 	if expiresSec > 0 {
 		maxAge = expiresSec
 	} else if expiresSec == -1 {
-		maxAge = int((30 * 24 * time.Hour).Seconds())
+		// 信任此设备: 180 天免登录(自用内部系统, 半年一签)
+		maxAge = int((180 * 24 * time.Hour).Seconds())
 	}
 	claims := &jwt.RegisteredClaims{
 		IssuedAt:  jwt.NewNumericDate(now),

@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { motion } from "motion/react"
 import { useTranslations } from 'use-intl'
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useLogin } from "@/api/endpoints/user"
@@ -11,20 +11,19 @@ import { KeyRound, User } from "lucide-react"
 import {
   Tabs,
   TabsList,
-  TabsHighlight,
-  TabsHighlightItem,
   TabsTrigger,
-  TabsContents,
   TabsContent,
-} from "@/components/animate-ui/primitives/animate/tabs"
+} from "@/components/ui/tabs"
 
 type LoginMode = 'user' | 'apikey';
 
-export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
+// LoginForm 渲染用户密码和 API Key 两种登录表单。
+export function LoginForm() {
   const t = useTranslations('login')
   const [mode, setMode] = useState<LoginMode>('user')
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [trustDevice, setTrustDevice] = useState(false) // trustDevice 表示是否请求后端签发 30 天登录凭证。
   const [apiKey, setApiKey] = useState("")
   const [error, setError] = useState<string | null>(null)
 
@@ -40,13 +39,11 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
         await loginMutation.mutateAsync({
           username,
           password,
-          expire: 86400,
+          expire: trustDevice ? -1 : 86400,
         })
       } else {
         await apiKeyLoginMutation.mutateAsync(apiKey)
       }
-
-      onLoginSuccess?.()
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : t('error.generic')
       setError(errorMessage)
@@ -61,13 +58,7 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="min-h-screen flex items-center justify-center px-6 text-foreground"
-    >
+    <div className="min-h-screen flex animate-in items-center justify-center px-6 text-foreground fade-in duration-300">
       <div className="w-full max-w-sm space-y-8">
         <header className="flex flex-col items-center gap-3">
           <Logo size={48} />
@@ -75,31 +66,25 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
         </header>
 
         <Tabs value={mode} onValueChange={handleModeChange}>
-          <TabsList className="flex p-1 bg-muted rounded-2xl">
-            <TabsHighlight className="rounded-xl bg-background shadow-sm">
-              <TabsHighlightItem value="user" className="flex-1">
-                <TabsTrigger
-                  value="user"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
-                >
-                  <User className="w-4 h-4" />
-                  {t('mode.user')}
-                </TabsTrigger>
-              </TabsHighlightItem>
-              <TabsHighlightItem value="apikey" className="flex-1">
-                <TabsTrigger
-                  value="apikey"
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
-                >
-                  <KeyRound className="w-4 h-4" />
-                  {t('mode.apikey')}
-                </TabsTrigger>
-              </TabsHighlightItem>
-            </TabsHighlight>
+          <TabsList className="flex w-full rounded-2xl bg-muted p-1">
+            <TabsTrigger
+              value="user"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+            >
+              <User className="w-4 h-4" />
+              {t('mode.user')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="apikey"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+            >
+              <KeyRound className="w-4 h-4" />
+              {t('mode.apikey')}
+            </TabsTrigger>
           </TabsList>
 
           <form onSubmit={handleSubmit} className="space-y-6 pt-2">
-            <TabsContents className="p-3 -mx-3 py-6">
+            <div className="-mx-3 p-3 py-6">
               <TabsContent value="user" className="space-y-6" style={{ overflow: 'visible' }}>
                 <Field>
                   <FieldLabel htmlFor="username">{t('username')}</FieldLabel>
@@ -125,6 +110,17 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
                     disabled={isPending}
                   />
                 </Field>
+                <Field orientation="horizontal" data-disabled={isPending}>
+                  <Checkbox
+                    id="trust-device"
+                    checked={trustDevice}
+                    onCheckedChange={(checked) => setTrustDevice(checked === true)}
+                    disabled={isPending}
+                  />
+                  <FieldLabel htmlFor="trust-device" className="text-muted-foreground">
+                    {t('trustDevice')}
+                  </FieldLabel>
+                </Field>
               </TabsContent>
               <TabsContent value="apikey" style={{ overflow: 'visible' }}>
                 <Field>
@@ -140,7 +136,7 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
                   />
                 </Field>
               </TabsContent>
-            </TabsContents>
+            </div>
 
             {error && <FieldDescription className="text-destructive">{error}</FieldDescription>}
 
@@ -150,6 +146,6 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
           </form>
         </Tabs>
       </div>
-    </motion.div>
+    </div>
   )
 }

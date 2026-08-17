@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useSettingList, useSetSetting, SettingKey } from '@/api/endpoints/setting';
 import { useClearLogs } from '@/api/endpoints/log';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 
 export function SettingLog() {
     const t = useTranslations('setting');

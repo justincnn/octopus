@@ -5,7 +5,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 
 /**
  * 日志页面组件

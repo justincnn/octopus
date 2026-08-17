@@ -5,7 +5,7 @@ import { type Group, useDeleteGroup, useUpdateGroup } from '@/api/endpoints/grou
 import { useModelChannelList } from '@/api/endpoints/model';
 import { useTranslations } from 'use-intl';
 import { cn } from '@/lib/utils';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { CopyIconButton } from '@/components/common/CopyButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import type { SelectedMember } from './ItemList';

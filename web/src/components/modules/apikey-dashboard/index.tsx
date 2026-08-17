@@ -1,6 +1,6 @@
 import { useTranslations } from 'use-intl';
 import { useTheme } from '@/provider/theme';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { useAPIKeyDashboardStats } from '@/api/endpoints/apikey';
 import { useAuthStore } from '@/api/endpoints/user';
 import { useSettingStore } from '@/stores/setting';

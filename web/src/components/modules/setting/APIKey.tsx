@@ -24,7 +24,7 @@ import {
 import { useGroupList } from '@/api/endpoints/group';
 import { useStatsAPIKey } from '@/api/endpoints/stats';
 import { cn } from '@/lib/utils';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { CopyIconButton } from '@/components/common/CopyButton';
 import type { ApiError } from '@/api/types';
 

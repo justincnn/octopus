@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslations } from 'use-intl';
 import { useUpdateModel, useDeleteModel, type LLMInfo } from '@/api/endpoints/model';
 import { getModelIcon } from '@/lib/model-icons';
-import { toast } from '@/components/common/Toast';
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { ModelDeleteOverlay, ModelEditOverlay } from './ItemOverlays';
 import { cn } from '@/lib/utils';
