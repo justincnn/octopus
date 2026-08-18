@@ -79,7 +79,7 @@ export function Log() {
                     items={logs}
                     layout="list"
                     columns={{ default: 1 }}
-                    estimateItemHeight={80}
+                    estimateItemHeight={36}
                     overscan={8}
                     getItemKey={(log) => `log-${log.id}`}
                     renderItem={(log) => <LogCard log={log} />}
