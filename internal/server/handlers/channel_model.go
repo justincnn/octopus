@@ -134,10 +134,20 @@ func buildChannelKeys(ch *model.Channel) []string {
 
 // probeModel 对单个模型按 key 序短路测试: 第一个 2xx 即成功(key_used 标注);
 // 全部失败返回最后一次错误; 每个被测 key 回写状态机并更新 keyProbes。
+// 按模型名分类测试方式: rerank 走 /rerank, embedding 走 /embeddings, 其他走 chat。
 func probeModel(ctx context.Context, ch model.Channel, keys []string, modelName string, maxTokens int, keyProbes map[string]*keyProbeStatus) modelTestResult {
 	var last modelTestResult
 	for _, k := range keys {
-		r, code := probeModelWithKey(ctx, ch, k, modelName, maxTokens)
+		var r modelTestResult
+		var code int
+		switch {
+		case isRerankModel(modelName):
+			r, code = probeSimpleJSON(ctx, ch, k, modelName, "/rerank", `{"model":%q,"query":"ok","documents":["ok"],"top_n":1}`)
+		case isEmbeddingModel(modelName):
+			r, code = probeSimpleJSON(ctx, ch, k, modelName, "/embeddings", `{"model":%q,"input":"ok"}`)
+		default:
+			r, code = probeModelWithKey(ctx, ch, k, modelName, maxTokens)
+		}
 		relay.RecordKeyProbe(&ch, k, code)
 		if p, ok := keyProbes[k]; ok {
 			if r.OK {
@@ -154,6 +164,52 @@ func probeModel(ctx context.Context, ch model.Channel, keys []string, modelName 
 		last = r
 	}
 	return last
+}
+
+// isEmbeddingModel / isRerankModel 按模型名粗判类型(embedding/rerank 模型用对应接口测试)。
+func isEmbeddingModel(name string) bool {
+	n := strings.ToLower(name)
+	return strings.Contains(n, "embed") || strings.Contains(n, "bge") ||
+		strings.Contains(n, "e5-") || strings.Contains(n, "m3e") || strings.Contains(n, "gte-")
+}
+
+func isRerankModel(name string) bool {
+	return strings.Contains(strings.ToLower(name), "rerank")
+}
+
+// probeSimpleJSON 非流式透传探活: 发固定 JSON body 到 {base}{path}, 2xx 即可用。
+func probeSimpleJSON(ctx context.Context, ch model.Channel, key, modelName, path, bodyTmpl string) (modelTestResult, int) {
+	payload := fmt.Sprintf(bodyTmpl, modelName)
+	upstreamURL := strings.TrimRight(ch.BaseURL, "/") + path
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader([]byte(payload)))
+	if err != nil {
+		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}, 0
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+key)
+	httpReq.ContentLength = int64(len(payload))
+
+	httpClient, err := helper.ChannelHttpClient(&ch)
+	if err != nil {
+		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}, 0
+	}
+	start := time.Now()
+	resp2, err := httpClient.Do(httpReq)
+	latency := time.Since(start).Milliseconds()
+	if err != nil {
+		return modelTestResult{ModelName: modelName, OK: false, LatencyMS: latency, Error: err.Error()}, 0
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode >= 200 && resp2.StatusCode < 300 {
+		return modelTestResult{ModelName: modelName, OK: true, LatencyMS: latency, Content: "ok"}, resp2.StatusCode
+	}
+	b, _ := io.ReadAll(io.LimitReader(resp2.Body, 300))
+	return modelTestResult{
+		ModelName: modelName,
+		OK:        false,
+		LatencyMS: latency,
+		Error:     fmt.Sprintf("status %d: %s", resp2.StatusCode, truncate(string(b), 200)),
+	}, resp2.StatusCode
 }
 
 // probeModelWithKey 用单个 key 对模型发最小对话请求, 返回结果 + 上游状态码。
