@@ -48,20 +48,24 @@ func contentNote(s string) llm.MessageContent {
 	return llm.MessageContent{Content: &s}
 }
 
-// truncateContextIfNeeded: 超窗时自动裁剪上下文, 保留首条(system 或第一条) + 最近轮次,
-// 裁掉最老中间轮, 并追加说明。maxContextTokens <=0 表示不启用。
+// truncateContextIfNeeded 在转发上游前对超长上下文做自动裁剪:
+// 保留 system + 最晚的若干条消息, 裁掉中段最老轮次, 并把 model 的窗口当作硬上限。
 func (ra *relayAttempt) truncateContextIfNeeded(maxContextTokens int) {
-	if maxContextTokens <= 0 || ra.internalRequest == nil {
+	if ra.internalRequest == nil {
 		return
 	}
-	msgs := ra.internalRequest.Messages
-	if len(msgs) <= 1 {
-		return
+	ra.internalRequest.Messages = truncateMsgs(ra.internalRequest.Messages, maxContextTokens)
+}
+
+// truncateMsgs 纯函数: 超窗时裁剪, maxContextTokens<=0 或未超窗则原样返回。
+func truncateMsgs(msgs []llm.Message, maxContextTokens int) []llm.Message {
+	if maxContextTokens <= 0 || len(msgs) <= 1 {
+		return msgs
 	}
 	limit := maxContextTokens * 9 / 10 // 给输出/reasoning 留 10%
 	total := countMsgTokens(msgs)
 	if total <= limit {
-		return
+		return msgs
 	}
 
 	// 保留: index0(通常是 system) 和最后一条。中间尽量保留最近的, 从最老开始丢。
@@ -86,7 +90,7 @@ func (ra *relayAttempt) truncateContextIfNeeded(maxContextTokens int) {
 		Content: contentNote("[system 自动裁剪] 因超出模型上下文窗口，较早的对话轮次已被截断。请基于最新消息继续。"),
 	})
 
-	ra.internalRequest.Messages = out
 	logrus.Infof("relay: context truncated %d -> ~%d tokens (channel window %d)",
 		total, countMsgTokens(out), maxContextTokens)
+	return out
 }
