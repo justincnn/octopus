@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -156,13 +157,17 @@ func probeModel(ctx context.Context, ch model.Channel, keys []string, modelName 
 }
 
 // probeModelWithKey 用单个 key 对模型发最小对话请求, 返回结果 + 上游状态码。
+// 流式请求: 收到 SSE 首帧即判定可用(首 token 延迟), 不等完整生成——
+// 否则 mistral 等无 max_tokens 的上游要生成完整回复才返回, 测试延迟 1-5 秒。
 func probeModelWithKey(ctx context.Context, ch model.Channel, key, modelName string, maxTokens int) (modelTestResult, int) {
 	mt := int64(maxTokens)
+	stream := true
 	prompt := "回复:ok"
 	llmReq := &llm.Request{
 		Model:     modelName,
 		Messages:  []llm.Message{{Role: "user", Content: llm.MessageContent{Content: &prompt}}},
 		MaxTokens: &mt,
+		Stream:    &stream,
 	}
 	out, err := relay.NewOutbound(ch.Type, llmReq, ch.BaseURL, key)
 	if err != nil {
@@ -203,22 +208,90 @@ func probeModelWithKey(ctx context.Context, ch model.Channel, key, modelName str
 		return modelTestResult{ModelName: modelName, OK: false, LatencyMS: latency, Error: err.Error()}, 0
 	}
 	defer resp2.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp2.Body, 4096))
 
 	if resp2.StatusCode >= 200 && resp2.StatusCode < 300 {
+		// 流式: 读 SSE 首帧(30s 上限)——首帧到达 = 模型已开始生成 = 可用
+		first, err := readFirstSSEFrame(resp2.Body)
+		if err != nil {
+			return modelTestResult{
+				ModelName: modelName,
+				OK:        false,
+				LatencyMS: time.Since(start).Milliseconds(),
+				Error:     fmt.Sprintf("stream read failed: %v", err),
+			}, resp2.StatusCode
+		}
 		return modelTestResult{
 			ModelName: modelName,
 			OK:        true,
-			LatencyMS: latency,
-			Content:   extractReplyContent(body),
+			LatencyMS: time.Since(start).Milliseconds(),
+			Content:   first,
 		}, resp2.StatusCode
 	}
+	body, _ := io.ReadAll(io.LimitReader(resp2.Body, 4096))
 	return modelTestResult{
 		ModelName: modelName,
 		OK:        false,
 		LatencyMS: latency,
 		Error:     fmt.Sprintf("status %d: %s", resp2.StatusCode, truncate(string(body), 300)),
 	}, resp2.StatusCode
+}
+
+// readFirstSSEFrame 读响应体直到第一个 data: 帧(非 [DONE]), 返回帧内可读文本。
+// 兼容 openai/mistral-conversations/anthropic/gemini 的 SSE 格式(data: {...})。
+func readFirstSSEFrame(r io.Reader) (string, error) {
+	reader := bufio.NewReader(r)
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		line, err := reader.ReadString('\n')
+		if err != nil && line == "" {
+			if err == io.EOF {
+				return "", fmt.Errorf("connection closed before first frame")
+			}
+			return "", err
+		}
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "data:") {
+			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if payload == "" || payload == "[DONE]" {
+				continue
+			}
+			return extractStreamContent([]byte(payload)), nil
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("timeout waiting for first frame")
+}
+
+// extractStreamContent 从流式首帧 JSON 提取可读文本
+// (openai: choices[0].delta.content / message.content; mistral: outputs[0].content)。
+func extractStreamContent(frame []byte) string {
+	var parsed struct {
+		Choices []struct {
+			Delta struct {
+				Content string `json:"content"`
+			} `json:"delta"`
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+		Outputs []struct {
+			Content string `json:"content"`
+		} `json:"outputs"`
+	}
+	if err := json.Unmarshal(frame, &parsed); err == nil {
+		if len(parsed.Choices) > 0 && parsed.Choices[0].Delta.Content != "" {
+			return truncate(parsed.Choices[0].Delta.Content, 80)
+		}
+		if len(parsed.Choices) > 0 && parsed.Choices[0].Message.Content != "" {
+			return truncate(parsed.Choices[0].Message.Content, 80)
+		}
+		if len(parsed.Outputs) > 0 && parsed.Outputs[0].Content != "" {
+			return truncate(parsed.Outputs[0].Content, 80)
+		}
+	}
+	return truncate(strings.TrimSpace(string(frame)), 80)
 }
 
 // extractReplyContent 从非流式响应里提取模型回复(openai: choices[0].message.content;
