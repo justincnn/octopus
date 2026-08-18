@@ -560,7 +560,7 @@
             "modelTestSummary": "可用 {ok}/{total}",
             "modelTestEmpty": "没有待测模型",
             "modelTestRetry": "重新测试",
-            "modelAddAvailable": "添加可用模型 ({ok})",
+            "modelAddAvailable": "覆盖为可用模型 ({ok})",
             "modelClearAll": "清除全部",
             "typeOpenAIChat": "OpenAI Chat",
             "typeOpenAIResponse": "OpenAI Response",

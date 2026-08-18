@@ -560,7 +560,7 @@
             "modelTestSummary": "{ok}/{total} available",
             "modelTestEmpty": "No models to test",
             "modelTestRetry": "Retry",
-            "modelAddAvailable": "Add available ({ok})",
+            "modelAddAvailable": "Replace with available ({ok})",
             "modelClearAll": "Clear All",
             "typeOpenAIChat": "OpenAI Chat",
             "typeOpenAIResponse": "OpenAI Response",

@@ -125,11 +125,10 @@ export function ChannelForm({
         setTestOpen(true);
     };
 
-    // 测试通过 → 一键加入已选模型(auto, 去重合并)
+    // 测试通过 → 覆盖为已选模型(不保留失败/旧模型; custom 清空, 通过的已并入 okModels)
     const handleAddAvailable = (okModels: string[]) => {
-        const merged = [...autoModels, ...okModels.filter((m) => !autoModels.includes(m))];
-        updateModels(merged, customModels);
-        toast.success(`已添加 ${okModels.length} 个可用模型`);
+        updateModels(okModels, []);
+        toast.success(`已覆盖为 ${okModels.length} 个可用模型`);
         setTestOpen(false);
     };
 
