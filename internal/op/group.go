@@ -31,9 +31,16 @@ func GroupListModel(ctx context.Context) ([]string, error) {
 	return models, nil
 }
 
-// UngroupedModels 渠道已选模型里没进任何分组的模型名(去重, 保序)。
+// UngroupedModel 渠道已选但未进分组的模型(含来源渠道, 供一键加入分组)。
+type UngroupedModel struct {
+	Name        string `json:"name"`
+	ChannelID   int    `json:"channel_id"`
+	ChannelName string `json:"channel_name"`
+}
+
+// UngroupedModels 渠道已选模型里没进任何分组的模型(去重, 保序)。
 // 用于分组页"未分组 N"徽章——区别于 UnmatchedModels(未匹配价格)。
-func UngroupedModels() []string {
+func UngroupedModels() []UngroupedModel {
 	grouped := make(map[string]bool)
 	for _, g := range groupCache.GetAll() {
 		for _, item := range g.Items {
@@ -41,7 +48,7 @@ func UngroupedModels() []string {
 		}
 	}
 	seen := make(map[string]bool)
-	var out []string
+	var out []UngroupedModel
 	for _, ch := range channelCache.GetAll() {
 		names := append(strings.Split(ch.Model, ","), strings.Split(ch.CustomModel, ",")...)
 		for _, n := range names {
@@ -50,7 +57,7 @@ func UngroupedModels() []string {
 				continue
 			}
 			seen[n] = true
-			out = append(out, n)
+			out = append(out, UngroupedModel{Name: n, ChannelID: ch.ID, ChannelName: ch.Name})
 		}
 	}
 	return out

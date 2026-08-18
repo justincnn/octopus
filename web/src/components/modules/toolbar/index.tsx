@@ -15,6 +15,7 @@ import { CreateDialogContent as ChannelCreateContent } from '@/components/module
 import { CreateDialogContent as GroupCreateContent } from '@/components/modules/group/Create';
 import { CreateDialogContent as ModelCreateContent } from '@/components/modules/model/Create';
 import { UnmatchedModelsDialog } from '@/components/modules/model/UnmatchedModelsDialog';
+import { UngroupedModelsDialog } from '@/components/modules/model/UngroupedModelsDialog';
 import { useUnmatchedModels, useUngroupedModels } from '@/api/endpoints/model';
 import { useTranslations } from 'use-intl';
 import { useSearchStore } from './search-store';
@@ -191,7 +192,7 @@ export function Toolbar() {
                     )}
                 </div>
 
-                {/* 分组页: 未分组模型数徽章(点击打开未匹配管理弹窗) */}
+                {/* 分组页: 未分组模型数徽章(点击打开未分组管理弹窗) */}
                 {toolbarItem === 'group' && ungroupedCount > 0 && (
                     <MorphingDialog>
                         <MorphingDialogTrigger className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 h-9 text-xs font-medium text-amber-600 hover:bg-amber-500/20 transition-colors">
@@ -200,7 +201,7 @@ export function Toolbar() {
                         </MorphingDialogTrigger>
                         <MorphingDialogContainer>
                             <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-6 py-4 rounded-3xl custom-shadow max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
-                                <UnmatchedModelsDialog />
+                                <UngroupedModelsDialog />
                             </MorphingDialogContent>
                         </MorphingDialogContainer>
                     </MorphingDialog>

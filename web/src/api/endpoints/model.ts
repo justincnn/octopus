@@ -197,11 +197,18 @@ export function useUnmatchedModels(enabled = true) {
     });
 }
 
-/** 获取渠道已选但没进任何分组的模型名(分组页"未分组 N"徽章) */
+/** 获取渠道已选但没进任何分组的模型(含来源渠道) */
+export interface UngroupedModel {
+    name: string;
+    channel_id: number;
+    channel_name: string;
+}
+
+/** 获取渠道已选但没进任何分组的模型(分组页"未分组 N"徽章) */
 export function useUngroupedModels(enabled = true) {
     return useQuery({
         queryKey: ['models', 'ungrouped'],
-        queryFn: () => apiRequest<string[]>('/api/v1/model/ungrouped'),
+        queryFn: () => apiRequest<UngroupedModel[]>('/api/v1/model/ungrouped'),
         refetchInterval: 30000,
         enabled,
     });
