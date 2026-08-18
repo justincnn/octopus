@@ -101,11 +101,12 @@ export function ChannelForm({
     const [testPayload, setTestPayload] = useState<ReturnType<typeof buildTestPayload> | null>(null);
 
     // 测试弹窗的渠道配置 payload(与 fetch-model 同构 + 待测模型列表)
-    // key 打码也直接发: 后端按 id 从缓存补明文
+    // key 为空/打码都直接发: 后端按 id 从缓存补明文; 主key空时前端先用 keys 池第一个
+    const effectiveKey = formData.key.trim() || formData.keys?.[0] || '';
     const buildTestPayload = (models: string[]) => ({
         type: formData.type,
         base_url: formData.base_url.trim(),
-        key: formData.key.trim(),
+        key: effectiveKey,
         id: channelId ?? 0,
         proxy: formData.proxy,
         channel_proxy: formData.channel_proxy?.trim() || null,
@@ -158,12 +159,12 @@ export function ChannelForm({
     };
 
     const handleRefreshModels = () => {
-        if (!formData.base_url || !formData.key) return;
+        if (!formData.base_url || (!formData.key && !(formData.keys?.length))) return;
         fetchModel.mutate(
             {
                 type: formData.type,
                 base_url: formData.base_url.trim(),
-                key: formData.key.trim(), // 打码也直接发: 后端按 id 从缓存补明文
+                key: effectiveKey, // 主key空时用 keys 池第一个; 打码/空由后端按 id 补明文
                 id: channelId ?? 0,
                 proxy: formData.proxy,
                 channel_proxy: formData.channel_proxy?.trim() || null,
@@ -710,6 +711,17 @@ export function ModelCandidateDialog({
         ? models.filter((m) => m.toLowerCase().includes(search.trim().toLowerCase()))
         : models;
 
+    // 批量操作(所见即所得: 作用于当前筛选结果; 全不选清空全部)
+    const handleSelectAll = () => {
+        filtered.forEach((m) => { if (!selected.has(m)) onToggle(m); });
+    };
+    const handleInvert = () => {
+        filtered.forEach((m) => onToggle(m));
+    };
+    const handleClearAll = () => {
+        models.forEach((m) => { if (selected.has(m)) onToggle(m); });
+    };
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
@@ -717,7 +729,7 @@ export function ModelCandidateDialog({
                 <p className="mb-3 text-xs text-muted-foreground">
                     共 {models.length} 个模型，勾选后确认（默认全不选）
                 </p>
-                <div className="relative mb-3">
+                <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         type="text"
@@ -726,6 +738,22 @@ export function ModelCandidateDialog({
                         placeholder="搜索模型..."
                         className="rounded-xl pl-9"
                     />
+                </div>
+                <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-xs">
+                        <button type="button" onClick={handleSelectAll} className="rounded-md px-2 py-1 text-primary hover:bg-primary/10">
+                            全选
+                        </button>
+                        <button type="button" onClick={handleInvert} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">
+                            反选
+                        </button>
+                        <button type="button" onClick={handleClearAll} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">
+                            全不选
+                        </button>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                        已选 {selected.size}/{models.length}
+                    </span>
                 </div>
                 <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-muted/30 p-2">
                     {filtered.length === 0 ? (
