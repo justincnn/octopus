@@ -47,7 +47,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
             groupFilter: 'all',
             modelFilter: 'all',
 
-            getLayout: (item) => get().layouts[item] || 'grid',
+            getLayout: (item) => get().layouts[item] || 'list',
             setLayout: (item, value) => {
                 set((state) => ({ layouts: { ...state.layouts, [item]: value } }));
             },
