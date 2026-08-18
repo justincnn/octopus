@@ -36,11 +36,15 @@ export function Group() {
 
     if (layout === 'list') {
         return (
-            <div className="flex flex-col gap-2">
-                {visibleGroups.map((group) => (
-                    <GroupListRow key={group.id ?? group.name} group={group} />
-                ))}
-            </div>
+            <VirtualizedGrid
+                items={visibleGroups}
+                layout="list"
+                columns={{ default: 1 }}
+                estimateItemHeight={40}
+                gap={8}
+                getItemKey={(group, index) => group.id ?? `group-${index}`}
+                renderItem={(group) => <GroupListRow group={group} />}
+            />
         );
     }
 
