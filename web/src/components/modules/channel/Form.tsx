@@ -248,11 +248,14 @@ export function ChannelForm({
                 <ModelCandidateDialog
                     models={candidateModels}
                     selected={selectedModels}
-                    onToggle={(m) => {
-                        const next = new Set(selectedModels);
-                        if (next.has(m)) next.delete(m); else next.add(m);
-                        setSelectedModels(next);
-                    }}
+                    onToggle={(m) =>
+                        setSelectedModels((prev) => {
+                            // 函数式更新: 批量操作(全选/反选)循环调用时 prev 链式累积
+                            const next = new Set(prev);
+                            if (next.has(m)) next.delete(m); else next.add(m);
+                            return next;
+                        })
+                    }
                     onConfirm={confirmCandidates}
                     onCancel={() => setShowCandidate(false)}
                 />
