@@ -179,9 +179,10 @@ func probeModelWithKey(ctx context.Context, ch model.Channel, key, modelName str
 	}
 
 	httpReq := &http.Request{
-		Method: outReq.Method,
-		Header: outReq.Headers,
-		Body:   io.NopCloser(bytes.NewReader(outReq.Body)),
+		Method:        outReq.Method,
+		Header:        outReq.Headers,
+		Body:          io.NopCloser(bytes.NewReader(outReq.Body)),
+		ContentLength: int64(len(outReq.Body)), // 必须定长: 腾讯等上游拒绝 chunked(412)
 	}
 	if u, err := url.Parse(outReq.URL); err == nil {
 		httpReq.URL = u
