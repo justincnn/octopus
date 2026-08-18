@@ -125,6 +125,14 @@ export function ChannelForm({
         setTestOpen(true);
     };
 
+    // 测试通过 → 一键加入已选模型(auto, 去重合并)
+    const handleAddAvailable = (okModels: string[]) => {
+        const merged = [...autoModels, ...okModels.filter((m) => !autoModels.includes(m))];
+        updateModels(merged, customModels);
+        toast.success(`已添加 ${okModels.length} 个可用模型`);
+        setTestOpen(false);
+    };
+
     // 眼睛切换: 打开时若 key 是打码值且可拉取明文, 用完整 key 替换显示; 关闭恢复打码(防误提交覆盖)
     const toggleKeyVisibility = () => {
         if (!showKey && channelId && formData.key.includes('****')) {
@@ -689,6 +697,7 @@ export function ChannelForm({
                     models={testModels}
                     testPayload={testPayload}
                     onClose={() => setTestOpen(false)}
+                    onAddAvailable={handleAddAvailable}
                 />
             )}
         </form>

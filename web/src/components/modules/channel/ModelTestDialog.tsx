@@ -11,6 +11,8 @@ interface ModelTestDialogProps {
     /** 完整渠道配置(含明文 key) + 待测模型列表, 后端走真实 outbound 转换路径 */
     testPayload: TestPayload;
     onClose: () => void;
+    /** 测试通过后一键把可用模型加入已选模型 */
+    onAddAvailable: (models: string[]) => void;
 }
 
 type TestPayload = Parameters<ReturnType<typeof useTestChannelModels>['mutate']>[0];
@@ -20,7 +22,7 @@ type RowState =
     | { model: string; status: 'done'; result: ModelTestResult };
 
 /** 模型可用性测试弹窗: 打开即自动批量测试, 逐行显示状态/延迟/错误; 底部展示 key 池探测状态。 */
-export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialogProps) {
+export function ModelTestDialog({ models, testPayload, onClose, onAddAvailable }: ModelTestDialogProps) {
     const t = useTranslations('channel.form');
     const testModels = useTestChannelModels();
     const [rows, setRows] = useState<RowState[]>([]);
@@ -62,6 +64,19 @@ export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialo
         const done = rows.filter((r) => r.status === 'done') as Extract<RowState, { status: 'done' }>[];
         const ok = done.filter((r) => r.result.ok).length;
         return { total: rows.length, done: done.length, ok };
+    }, [rows]);
+
+    // 测试通过的模型(去重保序)
+    const okModels = useMemo(() => {
+        const seen = new Set<string>();
+        const out: string[] = [];
+        rows.forEach((r) => {
+            if (r.status === 'done' && r.result.ok && !seen.has(r.result.model_name)) {
+                seen.add(r.result.model_name);
+                out.push(r.result.model_name);
+            }
+        });
+        return out;
     }, [rows]);
 
     return (
@@ -146,6 +161,17 @@ export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialo
                 )}
 
                 <div className="mt-3 flex justify-end gap-2">
+                    {stats.ok > 0 && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 px-3 text-xs"
+                            onClick={() => onAddAvailable(okModels)}
+                        >
+                            <CheckCircle2 className="size-3 mr-1" />
+                            {t('modelAddAvailable', { ok: okModels.length })}
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         variant="secondary"

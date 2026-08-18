@@ -41,6 +41,12 @@ func NewOutbound(provider dbmodel.ChannelProvider, request *llm.Request, baseURL
 	switch provider {
 	case dbmodel.ChannelProviderOpenAI, dbmodel.ChannelProviderOpenAIResponses:
 		// OpenAI 兼容渠道走标准 /chat/completions 或 /responses。
+		// openai 从 gpt-5 起拒绝 max_tokens(Unsupported parameter), 官方已统一 max_completion_tokens
+		// (gpt-4o 等旧模型同样支持, 第三方兼容网关实测兼容) → 入站 max_tokens 统一映射。
+		if request.MaxTokens != nil && request.MaxCompletionTokens == nil {
+			request.MaxCompletionTokens = request.MaxTokens
+			request.MaxTokens = nil
+		}
 		return openai.NewOutboundTransformer(baseURL, key)
 	case dbmodel.ChannelProviderMistral:
 		// Mistral 官方 /v1/conversations(Agent 格式) 支持 glm-5-2/zai-glm-5-2,
