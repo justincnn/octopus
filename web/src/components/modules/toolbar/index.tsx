@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpAZ, Clock3, LayoutGrid, List, Plus, Search, SlidersHorizontal, Tags, X } from 'lucide-react';
+import { ArrowUpAZ, CircleDashed, Clock3, LayoutGrid, List, Plus, Search, SlidersHorizontal, Tags, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     MorphingDialog,
@@ -82,7 +82,7 @@ export function Toolbar() {
     const setModelFilter = useToolbarViewOptionsStore((s) => s.setModelFilter);
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const searchExpanded = expandedSearchItem === toolbarItem;
-    const { data: unmatchedModels } = useUnmatchedModels(toolbarItem === 'model');
+    const { data: unmatchedModels } = useUnmatchedModels(toolbarItem === 'model' || toolbarItem === 'group');
     const unmatchedCount = unmatchedModels?.length ?? 0;
 
     if (!toolbarItem) return null;
@@ -187,6 +187,21 @@ export function Toolbar() {
                         </motion.div>
                     )}
                 </div>
+
+                {/* 分组页: 未分组模型数徽章(点击打开未匹配管理弹窗) */}
+                {toolbarItem === 'group' && unmatchedCount > 0 && (
+                    <MorphingDialog>
+                        <MorphingDialogTrigger className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 h-9 text-xs font-medium text-amber-600 hover:bg-amber-500/20 transition-colors">
+                            <CircleDashed className="size-3.5" />
+                            未分组 {unmatchedCount}
+                        </MorphingDialogTrigger>
+                        <MorphingDialogContainer>
+                            <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-6 py-4 rounded-3xl custom-shadow max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+                                <UnmatchedModelsDialog />
+                            </MorphingDialogContent>
+                        </MorphingDialogContainer>
+                    </MorphingDialog>
+                )}
 
                 {/* 未匹配模型按钮(仅模型页); 打开时组件内部自动刷新计数 */}
                 {toolbarItem === 'model' && (
