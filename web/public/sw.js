@@ -1,5 +1,5 @@
 // 缓存策略或预缓存结构变化时递增版本，以便激活阶段清理旧缓存。
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAMES = {
     shell: `octopus-shell-${CACHE_VERSION}`,
     static: `octopus-static-${CACHE_VERSION}`,
@@ -85,7 +85,9 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (url.pathname.startsWith('/assets/')) {
-        event.respondWith(cacheFirst(request));
+        // network-first: hash 资源取最新, 避免缓存旧/损坏版本导致无样式。
+        // (不再用 cacheFirst: 它命中缓存永不回源, 一旦缓存坏 CSS 就永久无样式)
+        event.respondWith(fetch(request));
         return;
     }
 
