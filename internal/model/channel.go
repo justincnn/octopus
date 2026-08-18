@@ -35,6 +35,7 @@ type Channel struct {
 	CustomModel   string          `json:"custom_model"`                            // CustomModel 是手动配置的模型列表。
 	Proxy         bool            `json:"proxy" gorm:"default:false"`             // Proxy 表示是否使用代理。
 	MaxConcurrency int            `json:"max_concurrency" gorm:"default:0"`        // MaxConcurrency 是渠道最大并发(0=不限制)。
+	MaxContextTokens int          `json:"max_context_tokens" gorm:"default:0"`     // MaxContextTokens 是渠道上下文窗口(tokens, 0=不启用自动裁剪)。超窗自动截断旧轮次。
 	AutoSync      bool            `json:"auto_sync" gorm:"default:false"`         // AutoSync 表示是否自动同步模型。
 	AutoGroup     AutoGroupType   `json:"auto_group" gorm:"default:0"`            // AutoGroup 是自动分组策略。
 	CustomHeader  []CustomHeader  `json:"custom_header" gorm:"serializer:json"`   // CustomHeader 是追加到上游请求的 Header。

@@ -274,6 +274,9 @@ func (ra *relayAttempt) forward() (int, error) {
 		return 0, fmt.Errorf("missing raw request")
 	}
 
+	// 超窗自动裁剪上下文(渠道配置了 MaxContextTokens 时生效), 避免上游 400。
+	ra.truncateContextIfNeeded(ra.channel.MaxContextTokens)
+
 	httpClient, err := helper.ChannelHttpClient(ra.channel)
 	if err != nil {
 		log.Warnf("failed to get http client: %v", err)
