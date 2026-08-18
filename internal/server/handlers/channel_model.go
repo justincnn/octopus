@@ -60,6 +60,8 @@ func testChannelModels(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, "model_names is required")
 		return
 	}
+	// 前端传打码 key 时, 用渠道 ID 从缓存取明文(无需先点眼睛显示密钥)
+	fillPlainKey(c.Request.Context(), &req.Channel)
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
 		maxTokens = 5
@@ -87,9 +89,10 @@ func testChannelModels(c *gin.Context) {
 // probeModel 用渠道配置对单个模型发最小对话请求, 判定可用性。
 func probeModel(ctx context.Context, ch model.Channel, modelName string, maxTokens int) modelTestResult {
 	mt := int64(maxTokens)
+	prompt := "回复:ok"
 	llmReq := &llm.Request{
 		Model:     modelName,
-		Messages:  []llm.Message{{Role: "user", Content: llm.MessageContent{Content: "回复:ok"}}},
+		Messages:  []llm.Message{{Role: "user", Content: llm.MessageContent{Content: &prompt}}},
 		MaxTokens: &mt,
 	}
 	out, err := relay.NewOutbound(ch.Type, llmReq, ch.BaseURL, ch.Key)
@@ -148,7 +151,8 @@ func probeModel(ctx context.Context, ch model.Channel, modelName string, maxToke
 	}
 }
 
-// extractReplyContent 从非流式响应里提取模型回复(choices[0].message.content), 提取不到返回原文截断。
+// extractReplyContent 从非流式响应里提取模型回复(openai: choices[0].message.content;
+// mistral conversations: outputs[0].content), 提取不到返回原文截断。
 func extractReplyContent(body []byte) string {
 	var parsed struct {
 		Choices []struct {
@@ -156,9 +160,17 @@ func extractReplyContent(body []byte) string {
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Outputs []struct {
+			Content string `json:"content"`
+		} `json:"outputs"`
 	}
-	if err := json.Unmarshal(body, &parsed); err == nil && len(parsed.Choices) > 0 && parsed.Choices[0].Message.Content != "" {
-		return truncate(parsed.Choices[0].Message.Content, 120)
+	if err := json.Unmarshal(body, &parsed); err == nil {
+		if len(parsed.Choices) > 0 && parsed.Choices[0].Message.Content != "" {
+			return truncate(parsed.Choices[0].Message.Content, 120)
+		}
+		if len(parsed.Outputs) > 0 && parsed.Outputs[0].Content != "" {
+			return truncate(parsed.Outputs[0].Content, 120)
+		}
 	}
 	return truncate(strings.TrimSpace(string(body)), 120)
 }

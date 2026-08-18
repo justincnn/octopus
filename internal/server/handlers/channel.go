@@ -272,12 +272,24 @@ func fetchModel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	// 前端传打码 key 时, 用渠道 ID 从缓存取明文(无需先点眼睛显示密钥)
+	fillPlainKey(c.Request.Context(), &request)
 	models, err := helper.FetchModels(c.Request.Context(), request)
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	resp.Success(c, models)
+}
+
+// fillPlainKey 请求体 key 是打码值(前3****后4)时, 用渠道 ID 从缓存取明文替换。
+func fillPlainKey(ctx context.Context, ch *model.Channel) {
+	if ch == nil || !strings.Contains(ch.Key, "****") || ch.ID <= 0 {
+		return
+	}
+	if cached, err := op.ChannelGet(ch.ID, ctx); err == nil && cached.Key != "" {
+		ch.Key = cached.Key
+	}
 }
 
 func syncChannel(c *gin.Context) {

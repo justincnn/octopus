@@ -115,6 +115,8 @@ export type FetchModelRequest = {
     type: ChannelType;
     base_url: string;
     key: string;
+    /** 渠道 ID: key 为打码值时后端按此取明文 */
+    id?: number;
     proxy?: boolean;
     channel_proxy?: string | null;
     proxy_pool?: string[] | null;

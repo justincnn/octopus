@@ -100,19 +100,13 @@ export function ChannelForm({
     const [testModels, setTestModels] = useState<string[]>([]);
     const [testPayload, setTestPayload] = useState<ReturnType<typeof buildTestPayload> | null>(null);
 
-    // 获取明文 key(打码值先拉取): 拉取模型/测试模型都必须用明文
-    const getPlainKey = async (): Promise<string | null> => {
-        const key = formData.key.trim();
-        if (!key.includes('****') || !channelId) return key || null;
-        const res = await channelKeyQuery.refetch();
-        return res.data ?? null;
-    };
-
     // 测试弹窗的渠道配置 payload(与 fetch-model 同构 + 待测模型列表)
-    const buildTestPayload = (key: string, models: string[]) => ({
+    // key 打码也直接发: 后端按 id 从缓存补明文
+    const buildTestPayload = (models: string[]) => ({
         type: formData.type,
         base_url: formData.base_url.trim(),
-        key,
+        key: formData.key.trim(),
+        id: channelId ?? 0,
         proxy: formData.proxy,
         channel_proxy: formData.channel_proxy?.trim() || null,
         proxy_pool: splitPool(formData.proxy_pool),
@@ -123,14 +117,9 @@ export function ChannelForm({
         max_tokens: 5,
     });
 
-    const handleTestModels = async (models: string[]) => {
+    const handleTestModels = (models: string[]) => {
         if (models.length === 0) return;
-        const key = await getPlainKey();
-        if (!key) {
-            toast.error(t('modelRefreshFailed'), { description: '无法获取渠道密钥，请先点击密钥旁的眼睛显示' });
-            return;
-        }
-        setTestPayload(buildTestPayload(key, models));
+        setTestPayload(buildTestPayload(models));
         setTestModels(models);
         setTestOpen(true);
     };
@@ -168,23 +157,14 @@ export function ChannelForm({
         onFormDataChange({ ...formData, model, custom_model });
     };
 
-    const handleRefreshModels = async () => {
+    const handleRefreshModels = () => {
         if (!formData.base_url || !formData.key) return;
-        let key = formData.key.trim();
-        // 编辑已有渠道时 key 是打码值(前3****后4): 拉模型必须用明文, 先拉取再请求
-        if (key.includes('****') && channelId) {
-            const res = await channelKeyQuery.refetch();
-            if (!res.data) {
-                toast.error(t('modelRefreshFailed'), { description: '无法获取渠道密钥，请先点击密钥旁的眼睛显示' });
-                return;
-            }
-            key = res.data;
-        }
         fetchModel.mutate(
             {
                 type: formData.type,
                 base_url: formData.base_url.trim(),
-                key,
+                key: formData.key.trim(), // 打码也直接发: 后端按 id 从缓存补明文
+                id: channelId ?? 0,
                 proxy: formData.proxy,
                 channel_proxy: formData.channel_proxy?.trim() || null,
                 proxy_pool: splitPool(formData.proxy_pool),
