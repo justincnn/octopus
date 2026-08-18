@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useTranslations } from 'use-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, Check, Search, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { RefreshCw, X, Plus, Check, Search, Eye, EyeOff, KeyRound, Zap } from 'lucide-react';
+import { ModelTestDialog } from './ModelTestDialog';
 
 export interface ChannelFormData {
     name: string;
@@ -93,6 +94,46 @@ export function ChannelForm({
     const [showKey, setShowKey] = useState(false);
     const keyBeforeRevealRef = useRef('');
     const channelKeyQuery = useChannelKey(channelId ?? 0);
+
+    // 模型测试弹窗: 单个模型或全部
+    const [testOpen, setTestOpen] = useState(false);
+    const [testModels, setTestModels] = useState<string[]>([]);
+    const [testPayload, setTestPayload] = useState<ReturnType<typeof buildTestPayload> | null>(null);
+
+    // 获取明文 key(打码值先拉取): 拉取模型/测试模型都必须用明文
+    const getPlainKey = async (): Promise<string | null> => {
+        const key = formData.key.trim();
+        if (!key.includes('****') || !channelId) return key || null;
+        const res = await channelKeyQuery.refetch();
+        return res.data ?? null;
+    };
+
+    // 测试弹窗的渠道配置 payload(与 fetch-model 同构 + 待测模型列表)
+    const buildTestPayload = (key: string, models: string[]) => ({
+        type: formData.type,
+        base_url: formData.base_url.trim(),
+        key,
+        proxy: formData.proxy,
+        channel_proxy: formData.channel_proxy?.trim() || null,
+        proxy_pool: splitPool(formData.proxy_pool),
+        sticky: formData.sticky,
+        match_regex: formData.match_regex.trim() || null,
+        custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+        model_names: models,
+        max_tokens: 5,
+    });
+
+    const handleTestModels = async (models: string[]) => {
+        if (models.length === 0) return;
+        const key = await getPlainKey();
+        if (!key) {
+            toast.error(t('modelRefreshFailed'), { description: '无法获取渠道密钥，请先点击密钥旁的眼睛显示' });
+            return;
+        }
+        setTestPayload(buildTestPayload(key, models));
+        setTestModels(models);
+        setTestOpen(true);
+    };
 
     // 眼睛切换: 打开时若 key 是打码值且可拉取明文, 用完整 key 替换显示; 关闭恢复打码(防误提交覆盖)
     const toggleKeyVisibility = () => {
@@ -375,17 +416,30 @@ export function ChannelForm({
                             {t('modelSelected')} {(autoModels.length + customModels.length) > 0 && `(${autoModels.length + customModels.length})`}
                         </label>
                         {(autoModels.length + customModels.length) > 0 && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    updateModels([], []);
-                                }}
-                                className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
-                            >
-                                {t('modelClearAll')}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleTestModels([...autoModels, ...customModels])}
+                                    className="h-6 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                                    title={t('modelTestAll')}
+                                >
+                                    <Zap className="size-3 mr-1" />
+                                    {t('modelTestAll')}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        updateModels([], []);
+                                    }}
+                                    className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
+                                >
+                                    {t('modelClearAll')}
+                                </Button>
+                            </div>
                         )}
                     </div>
                     <div className="rounded-xl border border-border bg-muted/30 p-2.5 max-h-40 min-h-12 overflow-y-auto">
@@ -396,8 +450,16 @@ export function ChannelForm({
                                         {model}
                                         <button
                                             type="button"
+                                            onClick={() => handleTestModels([model])}
+                                            className="ml-1 rounded-sm opacity-70 hover:opacity-100 hover:text-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                                            title={t('modelTest')}
+                                        >
+                                            <Zap className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                            type="button"
                                             onClick={() => handleRemoveAutoModel(model)}
-                                            className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
+                                            className="ml-0.5 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -408,8 +470,16 @@ export function ChannelForm({
                                         {model}
                                         <button
                                             type="button"
+                                            onClick={() => handleTestModels([model])}
+                                            className="ml-1 rounded-sm opacity-70 hover:opacity-100 hover:text-primary-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                            title={t('modelTest')}
+                                        >
+                                            <Zap className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                            type="button"
                                             onClick={() => handleRemoveCustomModel(model)}
-                                            className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
+                                            className="ml-0.5 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -629,6 +699,14 @@ export function ChannelForm({
                     {isPending ? pendingText : submitText}
                 </Button>
             </div>
+
+            {testOpen && testPayload && (
+                <ModelTestDialog
+                    models={testModels}
+                    testPayload={testPayload}
+                    onClose={() => setTestOpen(false)}
+                />
+            )}
         </form>
     );
 }

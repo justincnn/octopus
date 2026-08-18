@@ -156,7 +156,7 @@ func (r *relayRun) prepareAttempt() (*relayAttempt, error) {
 		return nil, nil
 	}
 
-	outAdapter, err := newOutbound(channel.Type, r.internalRequest, channel.BaseURL, key)
+	outAdapter, err := NewOutbound(channel.Type, r.internalRequest, channel.BaseURL, key)
 	if err != nil {
 		r.iter.Skip(channel.ID, channel.ID, channel.Name, err.Error())
 		return nil, nil

@@ -33,9 +33,10 @@ func newInbound(format llm.APIFormat) transformer.Inbound {
 	}
 }
 
-// newOutbound 根据渠道提供方(ChannelProvider)选择上游适配器。扁平化后渠道只存
+// NewOutbound 根据渠道提供方(ChannelProvider)选择上游适配器。扁平化后渠道只存
 // ChannelProvider, 不再持有 llm.APIFormat, 因此这里统一按 provider 分发。
-func newOutbound(provider dbmodel.ChannelProvider, request *llm.Request, baseURL, key string) (transformer.Outbound, error) {
+// (relay 内部与渠道模型测试共用)
+func NewOutbound(provider dbmodel.ChannelProvider, request *llm.Request, baseURL, key string) (transformer.Outbound, error) {
 	// 兼容旧值: 某些历史数据可能把 provider 写成 APIFormat 字符串
 	switch provider {
 	case dbmodel.ChannelProviderOpenAI, dbmodel.ChannelProviderOpenAIResponses:

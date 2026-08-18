@@ -282,6 +282,23 @@ export function useFetchModel() {
     });
 }
 
+/** 模型可用性测试结果 */
+export interface ModelTestResult {
+    model_name: string;
+    ok: boolean;
+    latency_ms: number;
+    content?: string;
+    error?: string;
+}
+
+/** 批量测试渠道已选模型可用性(走真实 outbound 转换路径) */
+export function useTestChannelModels() {
+    return useMutation({
+        mutationFn: (data: FetchModelRequest & { model_names: string[]; max_tokens?: number }) =>
+            apiRequest<{ results: ModelTestResult[] }>('/api/v1/channel/test-model', { method: 'POST', body: data }),
+    });
+}
+
 /**
  * 获取渠道最后同步时间 Hook
  * 
