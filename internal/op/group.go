@@ -3,6 +3,7 @@ package op
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bestruirui/octopus/internal/db"
 	"github.com/bestruirui/octopus/internal/model"
@@ -28,6 +29,31 @@ func GroupListModel(ctx context.Context) ([]string, error) {
 		models = append(models, group.Name)
 	}
 	return models, nil
+}
+
+// UngroupedModels 渠道已选模型里没进任何分组的模型名(去重, 保序)。
+// 用于分组页"未分组 N"徽章——区别于 UnmatchedModels(未匹配价格)。
+func UngroupedModels() []string {
+	grouped := make(map[string]bool)
+	for _, g := range groupCache.GetAll() {
+		for _, item := range g.Items {
+			grouped[item.ModelName] = true
+		}
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, ch := range channelCache.GetAll() {
+		names := append(strings.Split(ch.Model, ","), strings.Split(ch.CustomModel, ",")...)
+		for _, n := range names {
+			n = strings.TrimSpace(n)
+			if n == "" || grouped[n] || seen[n] {
+				continue
+			}
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 func GroupGet(id int, ctx context.Context) (*model.Group, error) {

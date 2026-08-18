@@ -51,6 +51,10 @@ func init() {
 				Handle(listUnmatchedModels),
 		).
 		AddRoute(
+			router.NewRoute("/ungrouped", http.MethodGet).
+				Handle(listUngroupedModels),
+		).
+		AddRoute(
 			router.NewRoute("/match", http.MethodPost).
 				Handle(matchModel),
 		).
@@ -215,6 +219,11 @@ func listUnmatchedModels(c *gin.Context) {
 		return
 	}
 	resp.Success(c, models)
+}
+
+// listUngroupedModels 返回渠道已选但没进任何分组的模型名(分组页"未分组 N"徽章)。
+func listUngroupedModels(c *gin.Context) {
+	resp.Success(c, op.UngroupedModels())
 }
 
 func matchModel(c *gin.Context) {

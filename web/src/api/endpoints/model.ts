@@ -197,6 +197,16 @@ export function useUnmatchedModels(enabled = true) {
     });
 }
 
+/** 获取渠道已选但没进任何分组的模型名(分组页"未分组 N"徽章) */
+export function useUngroupedModels(enabled = true) {
+    return useQuery({
+        queryKey: ['models', 'ungrouped'],
+        queryFn: () => apiRequest<string[]>('/api/v1/model/ungrouped'),
+        refetchInterval: 30000,
+        enabled,
+    });
+}
+
 /** 对某个模型名做模糊匹配, 返回候选 */
 export function useMatchModel() {
     return useMutation({

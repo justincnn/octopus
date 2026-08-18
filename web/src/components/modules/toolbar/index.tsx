@@ -15,7 +15,7 @@ import { CreateDialogContent as ChannelCreateContent } from '@/components/module
 import { CreateDialogContent as GroupCreateContent } from '@/components/modules/group/Create';
 import { CreateDialogContent as ModelCreateContent } from '@/components/modules/model/Create';
 import { UnmatchedModelsDialog } from '@/components/modules/model/UnmatchedModelsDialog';
-import { useUnmatchedModels } from '@/api/endpoints/model';
+import { useUnmatchedModels, useUngroupedModels } from '@/api/endpoints/model';
 import { useTranslations } from 'use-intl';
 import { useSearchStore } from './search-store';
 import {
@@ -82,8 +82,11 @@ export function Toolbar() {
     const setModelFilter = useToolbarViewOptionsStore((s) => s.setModelFilter);
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const searchExpanded = expandedSearchItem === toolbarItem;
-    const { data: unmatchedModels } = useUnmatchedModels(toolbarItem === 'model' || toolbarItem === 'group');
+    const { data: unmatchedModels } = useUnmatchedModels(toolbarItem === 'model');
     const unmatchedCount = unmatchedModels?.length ?? 0;
+    // 分组页徽章: 渠道已选但未进分组的模型数(区别于未匹配价格)
+    const { data: ungroupedModels } = useUngroupedModels(toolbarItem === 'group');
+    const ungroupedCount = ungroupedModels?.length ?? 0;
 
     if (!toolbarItem) return null;
     // group 页已支持列表视图(分组名/候选数/启用数/策略), 布局切换对所有页面开放
@@ -189,11 +192,11 @@ export function Toolbar() {
                 </div>
 
                 {/* 分组页: 未分组模型数徽章(点击打开未匹配管理弹窗) */}
-                {toolbarItem === 'group' && unmatchedCount > 0 && (
+                {toolbarItem === 'group' && ungroupedCount > 0 && (
                     <MorphingDialog>
                         <MorphingDialogTrigger className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 h-9 text-xs font-medium text-amber-600 hover:bg-amber-500/20 transition-colors">
                             <CircleDashed className="size-3.5" />
-                            未分组 {unmatchedCount}
+                            未分组 {ungroupedCount}
                         </MorphingDialogTrigger>
                         <MorphingDialogContainer>
                             <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-6 py-4 rounded-3xl custom-shadow max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
