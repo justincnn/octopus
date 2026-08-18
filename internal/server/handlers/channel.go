@@ -72,6 +72,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/keys/recover", http.MethodPost).
 				Handle(recoverChannelKey),
+		).
+		AddRoute(
+			router.NewRoute("/keys/delete", http.MethodPost).
+				Handle(deleteChannelKey),
 		)
 }
 
@@ -188,6 +192,42 @@ func recoverChannelKey(c *gin.Context) {
 		return
 	}
 	relay.RecoverKey(channel, req.Key)
+	resp.Success(c, nil)
+}
+
+// deleteChannelKey 从渠道 keys 池移除 key(持久化 DB + 状态机随 keys 变化自动重建)。
+func deleteChannelKey(c *gin.Context) {
+	var req struct {
+		ChannelID int    `json:"channel_id"`
+		Key       string `json:"key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ChannelID <= 0 || req.Key == "" {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	ctx := c.Request.Context()
+	channel, err := op.ChannelGet(req.ChannelID, ctx)
+	if err != nil {
+		resp.Error(c, http.StatusNotFound, "channel not found")
+		return
+	}
+	newKeys := make([]string, 0, len(channel.Keys))
+	found := false
+	for _, k := range channel.Keys {
+		if k == req.Key {
+			found = true
+			continue
+		}
+		newKeys = append(newKeys, k)
+	}
+	if !found {
+		resp.Error(c, http.StatusNotFound, "key not found")
+		return
+	}
+	if _, err := op.ChannelUpdate(&model.ChannelUpdateRequest{ID: channel.ID, Keys: &newKeys}, ctx); err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	resp.Success(c, nil)
 }
 

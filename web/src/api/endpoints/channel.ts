@@ -380,6 +380,14 @@ export function useRecoverChannelKey() {
             apiRequest<null>('/api/v1/channel/keys/recover', { method: 'POST', body: data }),
     });
 }
+
+/** 从 keys 池删除 key(持久化) */
+export function useDeleteChannelKey() {
+    return useMutation({
+        mutationFn: (data: { channel_id: number; key: string }) =>
+            apiRequest<null>('/api/v1/channel/keys/delete', { method: 'POST', body: data }),
+    });
+}
 /**
  * 同步渠道 Hook
  * 

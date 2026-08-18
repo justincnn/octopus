@@ -8,6 +8,7 @@ import {
     useChannelKeysStatus,
     useDisableChannelKey,
     useRecoverChannelKey,
+    useDeleteChannelKey,
 } from '@/api/endpoints/channel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -60,11 +61,16 @@ export function KeysManagerDialog({
     const [editing, setEditing] = useState(initialKeys.length === 0); // 新建/空池直接进编辑
     const [draft, setDraft] = useState(initialKeys.join('\n'));
     const [saving, setSaving] = useState(false);
+    // 本地 keys 快照: 删除操作即时同步(initialKeys 是父组件快照, 弹窗打开中不刷新)
+    const [localKeys, setLocalKeys] = useState<string[]>(initialKeys);
+    // 删除二次确认: 记录待删除的 key
+    const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
     // 新建渠道(channelId=0)时无渠道 id, 不查询状态, 纯编辑模式
     const hasChannel = channelId > 0;
     const { data: statusList, refetch } = useChannelKeysStatus(channelId, hasChannel);
     const disableKey = useDisableChannelKey();
     const recoverKey = useRecoverChannelKey();
+    const deleteKey = useDeleteChannelKey();
 
     // 支持换行/空格/逗号分隔批量粘贴(用户可能整段粘贴)
     const draftKeys = useMemo(
@@ -79,6 +85,7 @@ export function KeysManagerDialog({
     const handleSave = () => {
         setSaving(true);
         onSave(draftKeys);
+        setLocalKeys(draftKeys);
         setSaving(false);
         setEditing(false);
         if (!hasChannel) {
@@ -120,7 +127,24 @@ export function KeysManagerDialog({
         );
     };
 
-    const pendingOps = disableKey.isPending || recoverKey.isPending;
+    const handleDelete = (key: string) => {
+        deleteKey.mutate(
+            { channel_id: channelId, key },
+            {
+                onSuccess: () => {
+                    toast.success('已删除');
+                    setConfirmDeleteKey(null);
+                    const next = localKeys.filter((k) => k !== key);
+                    setLocalKeys(next);
+                    onSave(next); // 同步表单, 避免下次保存把已删 key 加回来
+                    void refetch();
+                },
+                onError: () => toast.error('删除失败'),
+            }
+        );
+    };
+
+    const pendingOps = disableKey.isPending || recoverKey.isPending || deleteKey.isPending;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
@@ -129,7 +153,7 @@ export function KeysManagerDialog({
                     <KeyRound className="h-4 w-4" />Keys 管理
                 </h3>
                 <p className="mb-4 text-xs text-muted-foreground">
-                    {initialKeys.length} 个 key · 轮询使用 · 无效 key 自动跳过，每小时自动探测恢复
+                    {localKeys.length} 个 key · 轮询使用 · 无效 key 自动跳过，每小时自动探测恢复
                 </p>
 
                 {/* 轮询策略选择 */}
@@ -174,12 +198,12 @@ export function KeysManagerDialog({
                     <div className="space-y-3">
                         {/* 状态列表 */}
                         <div className="max-h-80 overflow-y-auto space-y-2 rounded-xl border border-border bg-muted/30 p-2">
-                            {initialKeys.length === 0 && (
+                            {localKeys.length === 0 && (
                                 <div className="py-8 text-center text-xs text-muted-foreground">
                                     暂无 key，点击「编辑 Keys」添加
                                 </div>
                             )}
-                            {initialKeys.map((key) => {
+                            {localKeys.map((key) => {
                                 const st = statusMap.get(key);
                                 const active = st ? st.status === 'active' && !st.disabled : true;
                                 const meta = REASON_META[st?.reason ?? ''] ?? REASON_META[''];
@@ -229,6 +253,30 @@ export function KeysManagerDialog({
                                                     <Ban className="h-3 w-3 mr-1" />禁用
                                                 </Button>
                                             )}
+                                            {hasChannel && (confirmDeleteKey === key ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    className="h-7 rounded-lg px-2 text-xs"
+                                                    disabled={pendingOps}
+                                                    onClick={() => handleDelete(key)}
+                                                    onMouseLeave={() => setConfirmDeleteKey(null)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 mr-1" />确认删除
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 rounded-lg px-2 text-xs text-slate-400 hover:text-destructive"
+                                                    disabled={pendingOps}
+                                                    onClick={() => setConfirmDeleteKey(key)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 mr-1" />删除
+                                                </Button>
+                                            ))}
                                         </div>
                                     </div>
                                 );
