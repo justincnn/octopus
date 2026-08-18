@@ -86,7 +86,8 @@ export function Toolbar() {
     const unmatchedCount = unmatchedModels?.length ?? 0;
 
     if (!toolbarItem) return null;
-    const showLayoutOptions = toolbarItem !== 'group';
+    // group 页已支持列表视图(分组名/候选数/启用数/策略), 布局切换对所有页面开放
+    const showLayoutOptions = true;
     const showCombinedSortOptions = toolbarItem === 'channel' || toolbarItem === 'group';
 
     const channelFilterLabelKeys: Record<ChannelFilter, string> = {
