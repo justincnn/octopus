@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,14 @@ type modelTestResult struct {
 	LatencyMS int64  `json:"latency_ms"`
 	Content   string `json:"content,omitempty"`
 	Error     string `json:"error,omitempty"`
+	KeyUsed   string `json:"key_used,omitempty"` // 测通的 key(掩码)
+}
+
+// keyProbeStatus key 池探测状态: 只标注被测过的 key, 未测 = unknown。
+type keyProbeStatus struct {
+	Key    string `json:"key"` // 掩码
+	Status string `json:"status"` // ok / failed / unknown
+	Error  string `json:"error,omitempty"`
 }
 
 func init() {
@@ -48,8 +57,8 @@ func init() {
 		)
 }
 
-// testChannelModels 批量测试渠道已选模型可用性: 走真实 outbound 转换路径
-// (openai→chat/completions, mistral→conversations 等), 2xx=可用。
+// testChannelModels 批量测试渠道已选模型可用性:
+// 每个模型按 key 序(主key→keys池)短路测试——第一个 2xx 即成功; 探测结果回写 key 状态机。
 func testChannelModels(c *gin.Context) {
 	var req modelTestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,11 +69,24 @@ func testChannelModels(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, "model_names is required")
 		return
 	}
-	// 前端传打码 key 时, 用渠道 ID 从缓存取明文(无需先点眼睛显示密钥)
+	// 前端传打码/空 key 时, 用渠道 ID 从缓存补明文(主 key 空则取 keys 池第一个)
 	fillPlainKey(c.Request.Context(), &req.Channel)
+	// 前端 body 不带 keys 池: 从缓存补齐供 key 短路切换
+	fillChannelKeys(c.Request.Context(), &req.Channel)
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
 		maxTokens = 5
+	}
+
+	keys := buildChannelKeys(&req.Channel)
+	keyProbes := make(map[string]*keyProbeStatus, len(keys))
+	keyOrder := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if _, ok := keyProbes[k]; ok {
+			continue
+		}
+		keyProbes[k] = &keyProbeStatus{Key: maskKey(k), Status: "unknown"}
+		keyOrder = append(keyOrder, k)
 	}
 
 	ctx := c.Request.Context()
@@ -78,16 +100,63 @@ func testChannelModels(c *gin.Context) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			results[idx] = probeModel(ctx, req.Channel, modelName, maxTokens)
+			results[idx] = probeModel(ctx, req.Channel, keyOrder, modelName, maxTokens, keyProbes)
 		}(i, name)
 	}
 	wg.Wait()
 
-	resp.Success(c, gin.H{"results": results})
+	// key 状态按原顺序输出
+	keyStatus := make([]keyProbeStatus, 0, len(keyOrder))
+	for _, k := range keyOrder {
+		keyStatus = append(keyStatus, *keyProbes[k])
+	}
+
+	resp.Success(c, gin.H{"results": results, "key_status": keyStatus})
 }
 
-// probeModel 用渠道配置对单个模型发最小对话请求, 判定可用性。
-func probeModel(ctx context.Context, ch model.Channel, modelName string, maxTokens int) modelTestResult {
+// buildChannelKeys 组装测试用 key 列表: 主 key + keys 池, 去重保序。
+func buildChannelKeys(ch *model.Channel) []string {
+	seen := make(map[string]bool)
+	var out []string
+	if ch.Key != "" && !seen[ch.Key] {
+		out = append(out, ch.Key)
+		seen[ch.Key] = true
+	}
+	for _, k := range ch.Keys {
+		if !seen[k] {
+			out = append(out, k)
+			seen[k] = true
+		}
+	}
+	return out
+}
+
+// probeModel 对单个模型按 key 序短路测试: 第一个 2xx 即成功(key_used 标注);
+// 全部失败返回最后一次错误; 每个被测 key 回写状态机并更新 keyProbes。
+func probeModel(ctx context.Context, ch model.Channel, keys []string, modelName string, maxTokens int, keyProbes map[string]*keyProbeStatus) modelTestResult {
+	var last modelTestResult
+	for _, k := range keys {
+		r, code := probeModelWithKey(ctx, ch, k, modelName, maxTokens)
+		relay.RecordKeyProbe(&ch, k, code)
+		if p, ok := keyProbes[k]; ok {
+			if r.OK {
+				p.Status = "ok"
+			} else {
+				p.Status = "failed"
+				p.Error = r.Error
+			}
+		}
+		if r.OK {
+			r.KeyUsed = maskKey(k)
+			return r
+		}
+		last = r
+	}
+	return last
+}
+
+// probeModelWithKey 用单个 key 对模型发最小对话请求, 返回结果 + 上游状态码。
+func probeModelWithKey(ctx context.Context, ch model.Channel, key, modelName string, maxTokens int) (modelTestResult, int) {
 	mt := int64(maxTokens)
 	prompt := "回复:ok"
 	llmReq := &llm.Request{
@@ -95,18 +164,18 @@ func probeModel(ctx context.Context, ch model.Channel, modelName string, maxToke
 		Messages:  []llm.Message{{Role: "user", Content: llm.MessageContent{Content: &prompt}}},
 		MaxTokens: &mt,
 	}
-	out, err := relay.NewOutbound(ch.Type, llmReq, ch.BaseURL, ch.Key)
+	out, err := relay.NewOutbound(ch.Type, llmReq, ch.BaseURL, key)
 	if err != nil {
-		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}
+		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}, 0
 	}
 	outReq, err := out.TransformRequest(ctx, llmReq)
 	if err != nil {
-		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}
+		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}, 0
 	}
 
 	httpClient, err := helper.ChannelHttpClient(&ch)
 	if err != nil {
-		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}
+		return modelTestResult{ModelName: modelName, OK: false, Error: err.Error()}, 0
 	}
 
 	httpReq := &http.Request{
@@ -117,7 +186,7 @@ func probeModel(ctx context.Context, ch model.Channel, modelName string, maxToke
 	if u, err := url.Parse(outReq.URL); err == nil {
 		httpReq.URL = u
 	} else {
-		return modelTestResult{ModelName: modelName, OK: false, Error: "invalid url: " + outReq.URL}
+		return modelTestResult{ModelName: modelName, OK: false, Error: "invalid url: " + outReq.URL}, 0
 	}
 	if httpReq.Header == nil {
 		httpReq.Header = make(http.Header)
@@ -130,7 +199,7 @@ func probeModel(ctx context.Context, ch model.Channel, modelName string, maxToke
 	resp2, err := httpClient.Do(httpReq)
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		return modelTestResult{ModelName: modelName, OK: false, LatencyMS: latency, Error: err.Error()}
+		return modelTestResult{ModelName: modelName, OK: false, LatencyMS: latency, Error: err.Error()}, 0
 	}
 	defer resp2.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp2.Body, 4096))
@@ -141,14 +210,14 @@ func probeModel(ctx context.Context, ch model.Channel, modelName string, maxToke
 			OK:        true,
 			LatencyMS: latency,
 			Content:   extractReplyContent(body),
-		}
+		}, resp2.StatusCode
 	}
 	return modelTestResult{
 		ModelName: modelName,
 		OK:        false,
 		LatencyMS: latency,
 		Error:     fmt.Sprintf("status %d: %s", resp2.StatusCode, truncate(string(body), 300)),
-	}
+	}, resp2.StatusCode
 }
 
 // extractReplyContent 从非流式响应里提取模型回复(openai: choices[0].message.content;
@@ -173,6 +242,22 @@ func extractReplyContent(body []byte) string {
 		}
 	}
 	return truncate(strings.TrimSpace(string(body)), 120)
+}
+
+// fetchErrorStatus 从 FetchModels 错误文本提取上游状态码("fetch models failed: status 403: ...")。
+var fetchErrorStatusRe = regexp.MustCompile(`status (\d{3})`)
+
+func fetchErrorStatus(err error) int {
+	if err == nil {
+		return 200
+	}
+	if m := fetchErrorStatusRe.FindStringSubmatch(err.Error()); len(m) == 2 {
+		var code int
+		if _, e := fmt.Sscanf(m[1], "%d", &code); e == nil {
+			return code
+		}
+	}
+	return 0 // 未知错误(连接失败等), 回写时走 upstream_error
 }
 
 func truncate(s string, n int) string {

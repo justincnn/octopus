@@ -291,13 +291,22 @@ export interface ModelTestResult {
     latency_ms: number;
     content?: string;
     error?: string;
+    /** 测通的 key(掩码) */
+    key_used?: string;
 }
 
-/** 批量测试渠道已选模型可用性(走真实 outbound 转换路径) */
+/** key 池探测状态: 只标注被测过的 key, 未测 = unknown */
+export interface KeyProbeStatus {
+    key: string; // 掩码
+    status: 'ok' | 'failed' | 'unknown';
+    error?: string;
+}
+
+/** 批量测试渠道已选模型可用性(走真实 outbound 转换路径, key 短路切换) */
 export function useTestChannelModels() {
     return useMutation({
         mutationFn: (data: FetchModelRequest & { model_names: string[]; max_tokens?: number }) =>
-            apiRequest<{ results: ModelTestResult[] }>('/api/v1/channel/test-model', { method: 'POST', body: data }),
+            apiRequest<{ results: ModelTestResult[]; key_status: KeyProbeStatus[] }>('/api/v1/channel/test-model', { method: 'POST', body: data }),
     });
 }
 

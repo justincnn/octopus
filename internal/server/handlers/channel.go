@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -272,23 +273,59 @@ func fetchModel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	// 前端传打码 key 时, 用渠道 ID 从缓存取明文(无需先点眼睛显示密钥)
+	// 前端传打码/空 key 时, 用渠道 ID 从缓存补明文(主 key 空则取 keys 池第一个)
 	fillPlainKey(c.Request.Context(), &request)
-	models, err := helper.FetchModels(c.Request.Context(), request)
-	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
-		return
+	// 前端 body 不带 keys 池: 从缓存补齐供 key 短路切换
+	fillChannelKeys(c.Request.Context(), &request)
+
+	// 按 key 序短路拉取: 第一个可用 key 成功即返回; 探测结果回写 key 状态机
+	var lastErr error
+	for _, k := range buildChannelKeys(&request) {
+		probe := request
+		probe.Key = k
+		models, err := helper.FetchModels(c.Request.Context(), probe)
+		if err == nil {
+			relay.RecordKeyProbe(&request, k, http.StatusOK)
+			resp.Success(c, models)
+			return
+		}
+		relay.RecordKeyProbe(&request, k, fetchErrorStatus(err))
+		lastErr = err
 	}
-	resp.Success(c, models)
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no available key")
+	}
+	resp.Error(c, http.StatusInternalServerError, lastErr.Error())
 }
 
-// fillPlainKey 请求体 key 是打码值(前3****后4)时, 用渠道 ID 从缓存取明文替换。
+// fillPlainKey 请求体 key 是打码值(前3****后4)或为空时, 用渠道 ID 从缓存取明文替换;
+// 主 key 也为空时取 key 池第一个(如白山智算等只配 keys 池的渠道)。
 func fillPlainKey(ctx context.Context, ch *model.Channel) {
-	if ch == nil || !strings.Contains(ch.Key, "****") || ch.ID <= 0 {
+	if ch == nil || ch.ID <= 0 {
 		return
 	}
-	if cached, err := op.ChannelGet(ch.ID, ctx); err == nil && cached.Key != "" {
+	if ch.Key != "" && !strings.Contains(ch.Key, "****") {
+		return // 已是明文非空, 无需处理
+	}
+	cached, err := op.ChannelGet(ch.ID, ctx)
+	if err != nil {
+		return
+	}
+	switch {
+	case cached.Key != "":
 		ch.Key = cached.Key
+	case len(cached.Keys) > 0:
+		ch.Key = cached.Keys[0]
+	}
+}
+
+// fillChannelKeys 请求体 keys 池为空时, 从渠道缓存补齐(供 key 短路切换用)。
+func fillChannelKeys(ctx context.Context, ch *model.Channel) {
+	if ch == nil || ch.ID <= 0 || len(ch.Keys) > 0 {
+		return
+	}
+	if cached, err := op.ChannelGet(ch.ID, ctx); err == nil {
+		ch.Keys = cached.Keys
 	}
 }
 

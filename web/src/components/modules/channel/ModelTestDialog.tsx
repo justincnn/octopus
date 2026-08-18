@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Zap, CheckCircle2, XCircle, RefreshCw, X } from 'lucide-react';
+import { Loader2, Zap, CheckCircle2, XCircle, RefreshCw, X, CircleDashed } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { cn } from '@/lib/utils';
-import type { ModelTestResult } from '@/api/endpoints/channel';
+import type { KeyProbeStatus, ModelTestResult } from '@/api/endpoints/channel';
 import { useTestChannelModels } from '@/api/endpoints/channel';
 import { Button } from '@/components/ui/button';
 
@@ -19,15 +19,17 @@ type RowState =
     | { model: string; status: 'waiting' | 'testing' }
     | { model: string; status: 'done'; result: ModelTestResult };
 
-/** 模型可用性测试弹窗: 打开即自动批量测试, 逐行显示状态/延迟/错误。 */
+/** 模型可用性测试弹窗: 打开即自动批量测试, 逐行显示状态/延迟/错误; 底部展示 key 池探测状态。 */
 export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialogProps) {
     const t = useTranslations('channel.form');
     const testModels = useTestChannelModels();
     const [rows, setRows] = useState<RowState[]>([]);
+    const [keyStatus, setKeyStatus] = useState<KeyProbeStatus[]>([]);
 
     const startTest = () => {
         if (models.length === 0) return;
         setRows(models.map((m) => ({ model: m, status: 'waiting' as const })));
+        setKeyStatus([]);
         testModels.mutate(testPayload, {
             onSuccess: (data) => {
                 const byName = new Map(data.results.map((r) => [r.model_name, r]));
@@ -38,6 +40,7 @@ export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialo
                             : row
                     )
                 );
+                setKeyStatus(data.key_status ?? []);
             },
             onError: (error) => {
                 setRows((prev) =>
@@ -103,13 +106,44 @@ export function ModelTestDialog({ models, testPayload, onClose }: ModelTestDialo
                                 </div>
                                 {row.status === 'done' && (
                                     <div className={cn('truncate text-[10px]', row.result.ok ? 'text-muted-foreground' : 'text-destructive/80')}>
-                                        {row.result.ok ? (row.result.content ?? '') : (row.result.error ?? '')}
+                                        {row.result.ok
+                                            ? (row.result.key_used ? `key ${row.result.key_used} · ${row.result.content ?? ''}` : (row.result.content ?? ''))
+                                            : (row.result.error ?? '')}
                                     </div>
                                 )}
                             </div>
                         </div>
                     ))}
                 </div>
+
+                {/* key 池探测状态: 只标注被测过的 key, 未测 = unknown */}
+                {keyStatus.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 p-2">
+                        <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">Key 池状态</div>
+                        <div className="space-y-1">
+                            {keyStatus.map((ks) => (
+                                <div key={ks.key} className="flex items-center gap-2 text-[11px]">
+                                    {ks.status === 'ok' && <CheckCircle2 className="size-3 shrink-0 text-primary" />}
+                                    {ks.status === 'failed' && <XCircle className="size-3 shrink-0 text-destructive" />}
+                                    {ks.status === 'unknown' && <CircleDashed className="size-3 shrink-0 text-muted-foreground/60" />}
+                                    <span className={cn(
+                                        'truncate font-mono',
+                                        ks.status === 'failed' && 'text-destructive',
+                                        ks.status === 'unknown' && 'text-muted-foreground/60'
+                                    )}>
+                                        {ks.key}
+                                    </span>
+                                    <span className={cn(
+                                        'shrink-0',
+                                        ks.status === 'ok' ? 'text-primary' : ks.status === 'failed' ? 'text-destructive' : 'text-muted-foreground/60'
+                                    )}>
+                                        {ks.status === 'ok' ? '可用' : ks.status === 'failed' ? (ks.error ? ks.error.slice(0, 60) : '失效') : '未测试'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-3 flex justify-end gap-2">
                     <Button

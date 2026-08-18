@@ -2,6 +2,7 @@ package relay
 
 import (
 	"math/rand"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -292,5 +293,35 @@ func RecoverKey(ch *model.Channel, key string) {
 		st.Reason = ""
 		st.FailCount = 0
 		return
+	}
+}
+
+// RecordKeyProbe 把渠道测试/刷新模型的探测结果回写 key 状态机:
+// 2xx 恢复 active; 401/403 直接标 invalid(测试是权威验证, 不等 3 次失败);
+// 429 记 rate_limited; 其他非 2xx 记 upstream_error(连 3 次才踢)。
+func RecordKeyProbe(ch *model.Channel, key string, statusCode int) {
+	if ch == nil || key == "" {
+		return
+	}
+	switch {
+	case statusCode >= 200 && statusCode < 300:
+		markKeySuccess(ch, key)
+	case statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden:
+		// 认证类错误无重试价值: 直接踢出轮询池
+		ck := loadKeyStates(ch)
+		for _, st := range ck.states {
+			if st.Key != key {
+				continue
+			}
+			st.Status = KeyStatusInvalid
+			st.Reason = KeyReasonInvalid
+			st.FailCount = failThreshold
+			st.LastFailAt = time.Now()
+			return
+		}
+	case statusCode == http.StatusTooManyRequests:
+		markKeyFail(ch, key, KeyReasonRateLimited)
+	default:
+		markKeyFail(ch, key, KeyReasonUpstreamError)
 	}
 }
