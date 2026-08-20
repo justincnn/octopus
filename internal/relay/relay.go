@@ -274,9 +274,6 @@ func (ra *relayAttempt) forward() (int, error) {
 		return 0, fmt.Errorf("missing raw request")
 	}
 
-	// 超窗自动裁剪上下文(渠道配置了 MaxContextTokens 时生效), 避免上游 400。
-	ra.truncateContextIfNeeded(ra.channel.MaxContextTokens)
-
 	httpClient, err := helper.ChannelHttpClient(ra.channel)
 	if err != nil {
 		log.Warnf("failed to get http client: %v", err)
@@ -441,7 +438,10 @@ func (ra *relayAttempt) writeStream(ctx context.Context, clientStream streams.St
 			if !ok {
 				log.Infof("stream end")
 				if len(responseEvents) == 0 {
-					return nil
+					// 上游一个事件都没产出就正常结束 = 空流(0 token)。
+					// tentcent 偶发上游对该类请求返回空流, 记为成功会让客户端收到空完成(Hermes"无输出")。
+					// 这里作为上游错误返回, 触发 run() 失败分支 → 换下一候选通道重试, 避免死等/空响应。
+					return fmt.Errorf("upstream returned empty stream: 0 events, treating as failure to failover")
 				}
 				// 客户端请求流式时，pipeline 只负责边转边写，不会自动生成完整响应体。
 				// 这里复用同一个 inbound 聚合器把已经写给客户端的事件合成最终 body，日志只落一次最终响应。
