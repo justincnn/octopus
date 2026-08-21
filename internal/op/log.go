@@ -64,6 +64,12 @@ func relayLogFlushToDB(ctx context.Context) error {
 	flushedUpto := len(batch)
 	relayLogCacheLock.Unlock()
 
+	// 大请求/响应体不落库(单次几百KB, 撑爆 SQLite); 实时查看走内存缓存, 审计只留元数据
+	for i := range batch {
+		batch[i].RequestContent = ""
+		batch[i].ResponseContent = ""
+	}
+
 	result := db.GetDB().WithContext(ctx).Create(&batch)
 	if result.Error != nil {
 		return result.Error
