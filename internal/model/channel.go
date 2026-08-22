@@ -35,6 +35,7 @@ type Channel struct {
 	CustomModel   string          `json:"custom_model"`                            // CustomModel 是手动配置的模型列表。
 	Proxy         bool            `json:"proxy" gorm:"default:false"`             // Proxy 表示是否使用代理。
 	MaxConcurrency int            `json:"max_concurrency" gorm:"default:0"`        // MaxConcurrency 是渠道最大并发(0=不限制)。
+	MaxFailures    int            `json:"max_failures" gorm:"default:0"`           // MaxFailures 是连续失败熔断阈值(0=用全局默认3)。调大=更宽松(如关键主渠道故意设高避免误熔断)。
 	MaxContextTokens int          `json:"max_context_tokens" gorm:"default:0"`     // MaxContextTokens 是渠道上下文窗口(tokens, 0=不启用自动裁剪)。超窗自动截断旧轮次。
 	AutoSync      bool            `json:"auto_sync" gorm:"default:false"`         // AutoSync 表示是否自动同步模型。
 	AutoGroup     AutoGroupType   `json:"auto_group" gorm:"default:0"`            // AutoGroup 是自动分组策略。
@@ -67,6 +68,7 @@ type ChannelUpdateRequest struct {
 	CustomModel   *string          `json:"custom_model,omitempty"`  // CustomModel 是新的自定义模型列表。
 	Proxy         *bool            `json:"proxy,omitempty"`         // Proxy 是新的代理开关。
 	MaxConcurrency *int            `json:"max_concurrency,omitempty"` // MaxConcurrency 是新的渠道最大并发。
+	MaxFailures    *int            `json:"max_failures,omitempty"`    // MaxFailures 是新的连续失败熔断阈值(0=默认3)。
 	AutoSync      *bool            `json:"auto_sync,omitempty"`     // AutoSync 是新的自动同步开关。
 	AutoGroup     *AutoGroupType   `json:"auto_group,omitempty"`    // AutoGroup 是新的自动分组策略。
 	CustomHeader  *[]CustomHeader  `json:"custom_header,omitempty"` // CustomHeader 是新的自定义 Header。

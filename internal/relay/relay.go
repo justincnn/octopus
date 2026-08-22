@@ -222,15 +222,16 @@ func (ra *relayAttempt) run() (bool, error) {
 	} else {
 		markKeyFail(ra.channel, ra.key, KeyReasonUpstreamError)
 	}
-	// 分组模型状态机: 同类错误连续 3 次 → 踢出轮询池
+	// 分组模型状态机: 同类错误连续 N 次 → 踢出轮询池(N 每渠道可用 max_failures 覆盖)
 	if ra.itemID > 0 {
+		thr := channelFailThreshold(ra.channel)
 		switch {
 		case upstreamStatusCode == http.StatusUnauthorized || upstreamStatusCode == http.StatusForbidden:
-			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonInvalid)
+			balancer.MarkItemFailWithThreshold(ra.itemID, balancer.ItemReasonInvalid, thr)
 		case upstreamStatusCode == http.StatusTooManyRequests:
-			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonRateLimited)
+			balancer.MarkItemFailWithThreshold(ra.itemID, balancer.ItemReasonRateLimited, thr)
 		default:
-			balancer.MarkItemFail(ra.itemID, balancer.ItemReasonUpstreamError)
+			balancer.MarkItemFailWithThreshold(ra.itemID, balancer.ItemReasonUpstreamError, thr)
 		}
 	}
 

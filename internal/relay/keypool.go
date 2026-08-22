@@ -31,7 +31,16 @@ const (
 )
 
 // failThreshold 同类错误连续失败次数, 达到即标记 invalid 踢出轮询池。
+// 每渠道可用 max_failures 覆盖(0=用此默认)。调大=熔断更宽松。
 const failThreshold = 3
+
+// channelFailThreshold 返回渠道的连续失败熔断阈值(ch.MaxFailures>0 用之, 否则全局默认)。
+func channelFailThreshold(ch *model.Channel) int {
+	if ch.MaxFailures > 0 {
+		return ch.MaxFailures
+	}
+	return failThreshold
+}
 
 // keyState 单个 key 的内存状态。
 type keyState struct {
@@ -217,7 +226,7 @@ func markKeyFail(ch *model.Channel, key, reason string) {
 			st.Reason = reason
 		}
 		st.LastFailAt = time.Now()
-		if st.FailCount >= failThreshold {
+		if st.FailCount >= channelFailThreshold(ch) {
 			st.Status = KeyStatusInvalid
 		}
 		return

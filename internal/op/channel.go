@@ -85,6 +85,10 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 		selectFields = append(selectFields, "max_concurrency")
 		updates.MaxConcurrency = *req.MaxConcurrency
 	}
+	if req.MaxFailures != nil {
+		selectFields = append(selectFields, "max_failures")
+		updates.MaxFailures = *req.MaxFailures
+	}
 	if req.AutoSync != nil {
 		selectFields = append(selectFields, "auto_sync")
 		updates.AutoSync = *req.AutoSync

@@ -28,6 +28,7 @@ const (
 )
 
 // itemFailThreshold 同类错误连续失败次数, 达到即标记 invalid 踢出轮询池。
+// 每渠道可用其 max_failures 覆盖(经 MarkItemFailWithThreshold); itemFailThreshold 是全局限量默认。
 const itemFailThreshold = 3
 
 // itemState 单个分组 item 的内存状态。
@@ -64,7 +65,16 @@ func itemUseCount(itemID int) uint64 {
 }
 
 // MarkItemFail 记录 item 失败; 同类错误连续 itemFailThreshold 次 → invalid + 原因。
+// 使用默认阈值; 需要按渠道覆盖时用 MarkItemFailWithThreshold。
 func MarkItemFail(itemID int, reason string) {
+	MarkItemFailWithThreshold(itemID, reason, itemFailThreshold)
+}
+
+// MarkItemFailWithThreshold 同 MarkItemFail, 但允许按渠道指定熔断阈值(>0), 0 用全局默认。
+func MarkItemFailWithThreshold(itemID int, reason string, threshold int) {
+	if threshold <= 0 {
+		threshold = itemFailThreshold
+	}
 	st := getItemState(itemID)
 	if reason == st.Reason {
 		st.FailCount++
@@ -73,7 +83,7 @@ func MarkItemFail(itemID int, reason string) {
 		st.FailCount = 1
 	}
 	st.LastFailAt = time.Now()
-	if st.FailCount >= itemFailThreshold {
+	if st.FailCount >= threshold {
 		st.Status = ItemStatusInvalid
 	}
 }
